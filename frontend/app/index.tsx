@@ -1,16 +1,38 @@
-import { Text, View, StyleSheet, Image } from "react-native";
+import { useEffect } from "react";
+import { View, Text, StyleSheet, Image } from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS } from "@/src/constants/theme";
+import { session } from "@/src/store/session";
+import { t } from "@/src/i18n/translations";
 
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+export default function Splash() {
+  const router = useRouter();
 
-export default function Index() {
-  console.log(EXPO_PUBLIC_BACKEND_URL, "EXPO_PUBLIC_BACKEND_URL");
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      const onboarded = await session.isOnboarded();
+      const workerId = await session.getWorkerId();
+      if (onboarded && workerId) {
+        router.replace("/(tabs)/home");
+      } else {
+        router.replace("/role");
+      }
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [router]);
 
   return (
-    <View style={styles.container}>
-      <Image
-        source={require("../assets/images/app-image.png")}
-        style={styles.image}
-      />
+    <View style={styles.container} testID="splash-screen">
+      <View style={styles.logoWrap}>
+        <View style={styles.iconCircle}>
+          <Ionicons name="hardware-chip-outline" size={36} color="#FFF" />
+        </View>
+        <Text style={styles.brand}>
+          R<Text style={{ color: COLORS.primary }}>O</Text>JGAAR
+        </Text>
+        <Text style={styles.tag}>{t("tagline")}</Text>
+      </View>
     </View>
   );
 }
@@ -18,13 +40,21 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0c0c0c",
+    backgroundColor: "#FFF",
     alignItems: "center",
     justifyContent: "center",
+    padding: 24,
   },
-  image: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "contain",
+  logoWrap: { alignItems: "center" },
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
   },
+  brand: { fontSize: 38, fontWeight: "800", color: COLORS.textPrimary, letterSpacing: 2 },
+  tag: { fontSize: 14, color: COLORS.textSecondary, marginTop: 6 },
 });

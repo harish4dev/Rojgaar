@@ -1,0 +1,122 @@
+{
+  "theme": "light",
+  "archetype": "Archetype 4 (Swiss & High-Contrast) adapted with Saffron for approachable utility",
+  "colors": {
+    "brand": {
+      "primary": "#FF6B1A",
+      "primary_hover": "#E65A12",
+      "primary_light": "#FFF0E6"
+    },
+    "background": {
+      "app": "#F9FAFB",
+      "card": "#FFFFFF",
+      "web_sidebar": "#111827",
+      "web_sidebar_hover": "#1F2937"
+    },
+    "text": {
+      "primary": "#111827",
+      "secondary": "#6B7280",
+      "inverse": "#FFFFFF"
+    },
+    "border": {
+      "default": "#E5E7EB",
+      "focus": "#FF6B1A"
+    },
+    "status": {
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "error": "#EF4444"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "headings": "Outfit, sans-serif",
+      "body": "DM Sans, sans-serif"
+    },
+    "scale": {
+      "h1": "text-3xl sm:text-4xl font-bold tracking-tight",
+      "h2": "text-2xl sm:text-3xl font-bold tracking-tight",
+      "h3": "text-xl sm:text-2xl font-semibold",
+      "body": "text-base leading-relaxed",
+      "caption": "text-sm text-gray-500"
+    },
+    "rules": [
+      "Never use Inter. Rely on Outfit for energetic, approachable headings and DM Sans for highly readable body text.",
+      "Headings over 24px must use tracking-tight."
+    ]
+  },
+  "spacing_and_layout": {
+    "mobile": {
+      "container_padding": "p-4",
+      "card_gap": "gap-4"
+    },
+    "web": {
+      "sidebar_width": "w-64",
+      "content_padding": "p-6 lg:p-8",
+      "grid": "grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6"
+    }
+  },
+  "surfaces_and_borders": {
+    "radius": {
+      "button": "rounded-xl",
+      "card": "rounded-2xl",
+      "input": "rounded-xl"
+    },
+    "shadows": {
+      "card": "shadow-sm",
+      "dropdown": "shadow-lg",
+      "floating_nav": "shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#FF6B1A] text-white hover:bg-[#E65A12] font-semibold rounded-xl py-3 px-6 transition-colors",
+      "secondary": "bg-white text-[#111827] border border-gray-200 hover:bg-gray-50 font-semibold rounded-xl py-3 px-6",
+      "ghost": "bg-transparent text-[#FF6B1A] hover:bg-[#FFF0E6] font-semibold rounded-xl py-3 px-6"
+    },
+    "inputs": {
+      "default": "w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#FF6B1A] focus:border-transparent transition-all"
+    },
+    "cards": {
+      "default": "bg-white rounded-2xl border border-gray-100 shadow-sm p-4 md:p-6"
+    },
+    "mobile_navigation": {
+      "bottom_tabs": "fixed bottom-0 w-full bg-white border-t border-gray-100 flex justify-around items-center py-3 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]",
+      "active_tab": "text-[#FF6B1A]",
+      "inactive_tab": "text-gray-400"
+    },
+    "web_navigation": {
+      "sidebar": "fixed left-0 top-0 h-screen w-64 bg-[#111827] text-white flex flex-col border-r border-gray-800",
+      "nav_item": "flex items-center px-4 py-3 mx-2 rounded-xl text-gray-300 hover:bg-[#1F2937] hover:text-white transition-colors",
+      "nav_item_active": "flex items-center px-4 py-3 mx-2 rounded-xl bg-[#1F2937] text-[#FF6B1A] font-medium"
+    }
+  },
+  "media": {
+    "image_urls": [
+      {
+        "url": "https://images.unsplash.com/photo-1679679811837-c28b2586f533?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwyfHxjb25zdHJ1Y3Rpb24lMjB3b3JrZXIlMjBwb3J0cmFpdHxlbnwwfHx8fDE3Nzk5NTEwNDh8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Smiling construction worker portrait",
+        "category": "worker_avatar"
+      },
+      {
+        "url": "https://images.pexels.com/photos/34054464/pexels-photo-34054464.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Electrician working",
+        "category": "job_thumbnail_electrician"
+      },
+      {
+        "url": "https://images.pexels.com/photos/4483865/pexels-photo-4483865.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Warehouse worker",
+        "category": "worker_avatar_2"
+      }
+    ],
+    "icons_strategy": "Use Lucide React icons. Use stroke-width 2 for clarity. For industry categories, use prominent icons surrounded by a light orange background circle (bg-[#FFF0E6] text-[#FF6B1A])."
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the user's provided visual structure. For mobile: clean white background cards on an off-white app background. For Web: Dark sidebar with light content dashboard.",
+    "Implement the 4-digit mock OTP screen exactly as described. Any 4-digit number should pass authentication.",
+    "On the language selection screen, build fully functioning English, Hindi, and Kannada options. All other language chips must display a 'Coming Soon' toast or disabled state.",
+    "For the web portal forms (Post Job, Add New Person), utilize heavily customized Shadcn components (Inputs, Select, Sliders) with rounded-xl radii and #FF6B1A focus states.",
+    "Ensure all interactive elements (buttons, inputs, language selectors, bottom tabs) include data-testid attributes (e.g., data-testid='login-submit-button').",
+    "For dummy jobs data, seed realistic blue-collar job titles (e.g., 'Senior Electrician', 'Warehouse Manager', 'Forklift Operator', 'Site Mason') and reasonable salary ranges."
+  ]
+}

@@ -5,8 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
-  Alert,
+  Modal,
+  Pressable,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,6 +20,8 @@ import { t, LANGUAGES } from "@/src/i18n/translations";
 export default function ProfileScreen() {
   const router = useRouter();
   const [worker, setWorker] = useState<any>(null);
+  const [showLogout, setShowLogout] = useState(false);
+  const [showLang, setShowLang] = useState(false);
 
   const load = useCallback(async () => {
     const wid = await session.getWorkerId();
@@ -33,41 +36,37 @@ export default function ProfileScreen() {
     }, [load])
   );
 
-  const switchLanguage = () => {
-    const opts = LANGUAGES.map((l) => ({
-      text: l.label,
-      onPress: async () => {
-        await session.setLang(l.code);
-        if (worker?.id) {
-          try {
-            await api.updateWorker(worker.id, { language: l.code });
-          } catch {
-            /* ignore */
-          }
-        }
-        // Hard reload so all screens pick up new translations.
-        router.replace("/(tabs)/profile");
-      },
-    }));
-    Alert.alert(
-      "Choose Language",
-      "Pick your preferred language",
-      [...opts, { text: "Cancel", style: "cancel" as const }]
-    );
+  const switchLanguage = () => setShowLang(true);
+
+  const pickLanguage = async (code: string) => {
+    setShowLang(false);
+    await session.setLang(code as any);
+    if (worker?.id) {
+      try {
+        await api.updateWorker(worker.id, { language: code });
+      } catch {
+        /* ignore */
+      }
+    }
+    if (Platform.OS === "web") {
+      (window as any).location.reload();
+    } else {
+      router.replace("/(tabs)/home");
+      setTimeout(() => router.replace("/(tabs)/profile"), 50);
+    }
   };
 
-  const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: async () => {
-          await session.clear();
-          router.replace("/onboarding/language");
-        },
-      },
-    ]);
+  const handleLogout = () => setShowLogout(true);
+
+  const confirmLogout = async () => {
+    setShowLogout(false);
+    await session.clear();
+    if (Platform.OS === "web") {
+      // Force a full reload on web so the tab layout fully unmounts and storage state resets cleanly.
+      (window as any).location.replace("/onboarding/language");
+    } else {
+      router.replace("/onboarding/language");
+    }
   };
 
   if (!worker) {
@@ -140,6 +139,88 @@ export default function ProfileScreen() {
           <Text style={styles.logoutText}>{t("logout")}</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Logout confirm modal — cross-platform */}
+      <Modal
+        visible={showLogout}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLogout(false)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setShowLogout(false)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalIconWrap}>
+              <Ionicons name="log-out-outline" size={28} color={COLORS.error} />
+            </View>
+            <Text style={styles.modalTitle}>{t("logout")}</Text>
+            <Text style={styles.modalDesc}>Are you sure you want to logout?</Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                testID="logout-cancel"
+                onPress={() => setShowLogout(false)}
+                style={[styles.modalBtn, styles.modalBtnSecondary]}
+              >
+                <Text style={styles.modalBtnTextSecondary}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                testID="logout-confirm"
+                onPress={confirmLogout}
+                style={[styles.modalBtn, styles.modalBtnDanger]}
+              >
+                <Text style={styles.modalBtnTextDanger}>{t("logout")}</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Language picker modal */}
+      <Modal
+        visible={showLang}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLang(false)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setShowLang(false)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Choose Language</Text>
+            <Text style={styles.modalDesc}>Pick your preferred language</Text>
+            <View style={{ marginTop: 8 }}>
+              {LANGUAGES.map((l) => {
+                const active = lang.code === l.code;
+                return (
+                  <TouchableOpacity
+                    key={l.code}
+                    testID={`lang-pick-${l.code}`}
+                    onPress={() => pickLanguage(l.code)}
+                    style={[styles.langOpt, active && styles.langOptActive]}
+                  >
+                    <Ionicons
+                      name="language"
+                      size={18}
+                      color={active ? COLORS.primary : COLORS.textSecondary}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.langOptLabel, active && { color: COLORS.primary }]}>
+                        {l.label}
+                      </Text>
+                      <Text style={styles.langOptNative}>{l.native}</Text>
+                    </View>
+                    {active && <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TouchableOpacity
+              testID="lang-cancel"
+              onPress={() => setShowLang(false)}
+              style={[styles.modalBtn, styles.modalBtnSecondary, { marginTop: 8 }]}
+            >
+              <Text style={styles.modalBtnTextSecondary}>Cancel</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -255,4 +336,61 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
   },
   logoutText: { color: COLORS.error, fontWeight: "700" },
+  // Modal styles
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(17, 24, 39, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 400,
+    backgroundColor: "#FFF",
+    borderRadius: RADIUS.xl,
+    padding: 24,
+  },
+  modalIconWrap: {
+    alignSelf: "center",
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.errorBg,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: COLORS.textPrimary, textAlign: "center" },
+  modalDesc: { fontSize: 13, color: COLORS.textSecondary, textAlign: "center", marginTop: 6 },
+  modalActions: { flexDirection: "row", gap: 10, marginTop: 20 },
+  modalBtn: {
+    flex: 1,
+    borderRadius: RADIUS.lg,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalBtnSecondary: {
+    backgroundColor: "#FFF",
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+  },
+  modalBtnDanger: { backgroundColor: COLORS.error },
+  modalBtnTextSecondary: { color: COLORS.textPrimary, fontWeight: "700" },
+  modalBtnTextDanger: { color: "#FFF", fontWeight: "700" },
+  langOpt: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1.5,
+    borderColor: COLORS.borderLight,
+    marginTop: 8,
+  },
+  langOptActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
+  langOptLabel: { fontSize: 15, fontWeight: "600", color: COLORS.textPrimary },
+  langOptNative: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
 });

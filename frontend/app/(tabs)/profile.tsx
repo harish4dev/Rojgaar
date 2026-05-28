@@ -33,6 +33,29 @@ export default function ProfileScreen() {
     }, [load])
   );
 
+  const switchLanguage = () => {
+    const opts = LANGUAGES.map((l) => ({
+      text: l.label,
+      onPress: async () => {
+        await session.setLang(l.code);
+        if (worker?.id) {
+          try {
+            await api.updateWorker(worker.id, { language: l.code });
+          } catch {
+            /* ignore */
+          }
+        }
+        // Hard reload so all screens pick up new translations.
+        router.replace("/(tabs)/profile");
+      },
+    }));
+    Alert.alert(
+      "Choose Language",
+      "Pick your preferred language",
+      [...opts, { text: "Cancel", style: "cancel" as const }]
+    );
+  };
+
   const handleLogout = () => {
     Alert.alert("Logout", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
@@ -41,7 +64,7 @@ export default function ProfileScreen() {
         style: "destructive",
         onPress: async () => {
           await session.clear();
-          router.replace("/role");
+          router.replace("/onboarding/language");
         },
       },
     ]);
@@ -86,10 +109,12 @@ export default function ProfileScreen() {
         <View style={styles.card}>
           <View style={styles.rowBetween}>
             <Text style={styles.sectionTitle}>{t("my_details")}</Text>
-            <TouchableOpacity testID="profile-edit">
+            <TouchableOpacity testID="profile-edit" onPress={() => router.push("/profile/edit" as any)}>
               <Text style={styles.editLink}>{t("edit")}</Text>
             </TouchableOpacity>
           </View>
+          <DetailRow label={t("gender")} value={worker.gender || "—"} />
+          <DetailRow label={t("age")} value={worker.age ? String(worker.age) : "—"} />
           <DetailRow label={t("industry")} value={(worker.industries || []).join(", ") || "—"} />
           <DetailRow label={t("skills")} value={(worker.skills || []).join(", ") || "—"} />
           <DetailRow label={t("experience")} value={worker.experience || "—"} />
@@ -99,7 +124,13 @@ export default function ProfileScreen() {
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>{t("more")}</Text>
-          <MenuRow testID="menu-language" icon="language" label={t("language")} value={lang.label} />
+          <MenuRow
+            testID="menu-language"
+            icon="language"
+            label={t("language")}
+            value={lang.label}
+            onPress={switchLanguage}
+          />
           <MenuRow testID="menu-help" icon="help-circle" label={t("help_center")} />
           <MenuRow testID="menu-settings" icon="settings" label={t("settings")} />
         </View>
@@ -129,14 +160,16 @@ function MenuRow({
   label,
   value,
   testID,
+  onPress,
 }: {
   icon: string;
   label: string;
   value?: string;
   testID?: string;
+  onPress?: () => void;
 }) {
   return (
-    <TouchableOpacity testID={testID} style={styles.menuRow} activeOpacity={0.7}>
+    <TouchableOpacity testID={testID} onPress={onPress} style={styles.menuRow} activeOpacity={0.7}>
       <Ionicons name={icon as any} size={20} color={COLORS.textSecondary} />
       <Text style={styles.menuLabel}>{label}</Text>
       <View style={{ flex: 1 }} />

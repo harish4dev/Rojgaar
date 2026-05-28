@@ -57,7 +57,7 @@ export default function Home() {
   const loadAll = useCallback(async (chip = activeChip, q = search) => {
     const wid = await session.getWorkerId();
     if (!wid) {
-      router.replace("/role");
+      router.replace("/onboarding/language");
       return;
     }
     try {

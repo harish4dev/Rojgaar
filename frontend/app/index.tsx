@@ -15,8 +15,11 @@ export default function Splash() {
       const workerId = await session.getWorkerId();
       if (onboarded && workerId) {
         router.replace("/(tabs)/home");
+      } else if (workerId) {
+        // Has account but didn't finish onboarding — resume from personal step
+        router.replace("/onboarding/personal");
       } else {
-        router.replace("/role");
+        router.replace("/onboarding/language");
       }
     }, 1200);
     return () => clearTimeout(timer);

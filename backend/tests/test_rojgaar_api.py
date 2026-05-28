@@ -140,6 +140,8 @@ class TestWorkers:
         payload = {
             "phone": pytest.worker_phone,
             "name": "TEST_Worker",
+            "gender": "Male",
+            "age": 25,
             "city": "Bengaluru",
             "industries": ["construction"],
             "skills": ["Mason"],

@@ -100,6 +100,20 @@ const en: Dict = {
   yrs_1_2: "1-2 Years",
   yrs_3_5: "3-5 Years",
   yrs_5_plus: "5+ Years",
+  about_you: "About You",
+  about_you_caption: "Tell us a little about yourself",
+  full_name: "Full Name",
+  full_name_ph: "e.g. Ravi Kumar",
+  gender: "Gender",
+  male: "Male",
+  female: "Female",
+  other: "Other",
+  age: "Age",
+  age_ph: "e.g. 28",
+  edit_profile: "Edit Profile",
+  save_changes: "Save Changes",
+  applied_success: "Marked as Applied",
+  applied_success_caption: "Your application has been recorded. Connecting you with the employer…",
 };
 
 const hi: Dict = {
@@ -276,6 +290,20 @@ const kn: Dict = {
   yrs_1_2: "1-2 ವರ್ಷ",
   yrs_3_5: "3-5 ವರ್ಷ",
   yrs_5_plus: "5+ ವರ್ಷ",
+  about_you: "ನಿಮ್ಮ ಬಗ್ಗೆ",
+  about_you_caption: "ನಿಮ್ಮ ಬಗ್ಗೆ ಸ್ವಲ್ಪ ತಿಳಿಸಿ",
+  full_name: "ಪೂರ್ಣ ಹೆಸರು",
+  full_name_ph: "ಉದಾ ರವಿ ಕುಮಾರ್",
+  gender: "ಲಿಂಗ",
+  male: "ಪುರುಷ",
+  female: "ಮಹಿಳೆ",
+  other: "ಇತರೆ",
+  age: "ವಯಸ್ಸು",
+  age_ph: "ಉದಾ 28",
+  edit_profile: "ಪ್ರೊಫೈಲ್ ಸಂಪಾದಿಸಿ",
+  save_changes: "ಬದಲಾವಣೆಗಳನ್ನು ಉಳಿಸಿ",
+  applied_success: "ಅರ್ಜಿ ಸಲ್ಲಿಸಲಾಗಿದೆ",
+  applied_success_caption: "ನಿಮ್ಮ ಅರ್ಜಿ ದಾಖಲಾಗಿದೆ. ಉದ್ಯೋಗದಾತರೊಂದಿಗೆ ಸಂಪರ್ಕಿಸಲಾಗುತ್ತಿದೆ…",
 };
 
 const DICTS: Record<Lang, Dict> = { en, hi, kn };

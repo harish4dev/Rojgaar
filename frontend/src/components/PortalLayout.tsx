@@ -73,7 +73,7 @@ export default function PortalLayout({
               <Text style={styles.userName}>{userName}</Text>
               <Text style={styles.userRole}>{userRole}</Text>
             </View>
-            <TouchableOpacity onPress={() => router.replace("/role")} testID="portal-logout">
+            <TouchableOpacity onPress={() => router.replace("/onboarding/language")} testID="portal-logout">
               <Ionicons name="log-out-outline" size={18} color="#9CA3AF" />
             </TouchableOpacity>
           </View>
@@ -83,7 +83,7 @@ export default function PortalLayout({
       <View style={styles.content}>
         {!isWide && (
           <View style={styles.mobileHeader}>
-            <TouchableOpacity onPress={() => router.replace("/role")} testID="portal-back">
+            <TouchableOpacity onPress={() => router.replace("/onboarding/language")} testID="portal-back">
               <Ionicons name="chevron-back" size={22} color={COLORS.textPrimary} />
             </TouchableOpacity>
             <Text style={styles.mobileTitle}>{title}</Text>

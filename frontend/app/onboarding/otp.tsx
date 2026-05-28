@@ -57,8 +57,15 @@ export default function OtpScreen() {
       const res = await api.verifyOtp(phone as string, code, "worker");
       if (res?.user?.id) {
         await session.setWorkerId(res.user.id);
-        if (res.is_new || !res.user.city) {
-          router.replace("/onboarding/city");
+        // Persist the selected language to the worker profile.
+        const lang = await session.getLang();
+        try {
+          await api.updateWorker(res.user.id, { language: lang });
+        } catch {
+          // Non-fatal
+        }
+        if (res.is_new || !res.user.gender || !res.user.city) {
+          router.replace("/onboarding/personal");
         } else {
           await session.setOnboarded(true);
           router.replace("/(tabs)/home");

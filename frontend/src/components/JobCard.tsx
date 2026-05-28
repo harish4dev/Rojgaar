@@ -1,9 +1,21 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Image, Linking, Platform } from "react-native";
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  Linking,
+  Platform,
+  Alert,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { COLORS, RADIUS } from "@/src/constants/theme";
 import { t } from "@/src/i18n/translations";
+import { api } from "@/src/api/client";
+import { session } from "@/src/store/session";
+import { getJobField } from "@/src/utils/jobTranslation";
 
 interface Job {
   id: string;
@@ -16,19 +28,43 @@ interface Job {
   experience: string;
   job_type: string;
   image_url?: string | null;
+  translations?: Record<string, any>;
 }
 
-export default function JobCard({ job, onCall }: { job: Job; onCall?: () => void }) {
+export default function JobCard({
+  job,
+  onApplied,
+}: {
+  job: Job;
+  onApplied?: () => void;
+}) {
   const router = useRouter();
-  const handleCall = () => {
-    if (onCall) {
-      onCall();
-      return;
+  const [applied, setApplied] = useState(false);
+
+  const tTitle = getJobField(job, "title") || job.title;
+  const tExperience = getJobField(job, "experience") || job.experience;
+  const tJobType = getJobField(job, "job_type") || job.job_type;
+
+  const handleCall = async () => {
+    try {
+      const wid = await session.getWorkerId();
+      if (wid) {
+        await api.apply(wid, job.id);
+        setApplied(true);
+        onApplied?.();
+      }
+    } catch {
+      // ignore — still try to open dialer
     }
-    if (Platform.OS !== "web") {
-      Linking.openURL("tel:+919876543210").catch(() => {});
+    if (Platform.OS === "web") {
+      Alert.alert(t("applied_success"), t("applied_success_caption"));
+    } else {
+      Linking.openURL("tel:+919876543210").catch(() => {
+        Alert.alert(t("applied_success"), t("applied_success_caption"));
+      });
     }
   };
+
   return (
     <TouchableOpacity
       testID={`job-card-${job.id}`}
@@ -38,7 +74,7 @@ export default function JobCard({ job, onCall }: { job: Job; onCall?: () => void
     >
       <View style={styles.topRow}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>{job.title}</Text>
+          <Text style={styles.title}>{tTitle}</Text>
           <Text style={styles.company}>{job.company}</Text>
           <Text style={styles.salary}>
             ₹{job.salary_min.toLocaleString("en-IN")} - ₹{job.salary_max.toLocaleString("en-IN")}{" "}
@@ -49,24 +85,22 @@ export default function JobCard({ job, onCall }: { job: Job; onCall?: () => void
           </Text>
           <View style={styles.tagRow}>
             <View style={styles.tag}>
-              <Text style={styles.tagText}>{job.experience}</Text>
+              <Text style={styles.tagText}>{tExperience}</Text>
             </View>
             <View style={styles.tag}>
-              <Text style={styles.tagText}>{job.job_type}</Text>
+              <Text style={styles.tagText}>{tJobType}</Text>
             </View>
           </View>
         </View>
-        {job.image_url ? (
-          <Image source={{ uri: job.image_url }} style={styles.thumb} />
-        ) : null}
+        {job.image_url ? <Image source={{ uri: job.image_url }} style={styles.thumb} /> : null}
       </View>
       <TouchableOpacity
         testID={`job-call-${job.id}`}
         onPress={handleCall}
-        style={styles.callBtn}
+        style={[styles.callBtn, applied && styles.appliedBtn]}
       >
-        <Ionicons name="call" size={16} color="#FFF" />
-        <Text style={styles.callText}>{t("call")}</Text>
+        <Ionicons name={applied ? "checkmark" : "call"} size={16} color="#FFF" />
+        <Text style={styles.callText}>{applied ? t("applied") : t("call")}</Text>
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -77,6 +111,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderRadius: RADIUS.xl,
     padding: 16,
+    paddingBottom: 56,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: COLORS.borderLight,
@@ -108,5 +143,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
+  appliedBtn: { backgroundColor: COLORS.success },
   callText: { color: "#FFF", fontWeight: "600", fontSize: 13 },
 });

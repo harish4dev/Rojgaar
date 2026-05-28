@@ -18,6 +18,7 @@ import { COLORS, RADIUS } from "@/src/constants/theme";
 import { api } from "@/src/api/client";
 import { session } from "@/src/store/session";
 import { t } from "@/src/i18n/translations";
+import { getJobField, getJobRequirements } from "@/src/utils/jobTranslation";
 
 export default function JobDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -63,10 +64,10 @@ export default function JobDetail() {
       await api.apply(wid, job.id);
     }
     if (Platform.OS === "web") {
-      Alert.alert("Application sent", "Your application was recorded. On mobile, this would also open the dialer.");
+      Alert.alert(t("applied_success"), t("applied_success_caption"));
     } else {
       Linking.openURL("tel:+919876543210").catch(() => {
-        Alert.alert("Application sent", "Your application was recorded.");
+        Alert.alert(t("applied_success"), t("applied_success_caption"));
       });
     }
   };
@@ -97,7 +98,7 @@ export default function JobDetail() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.titleRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.title}>{job.title}</Text>
+            <Text style={styles.title}>{getJobField(job, "title") || job.title}</Text>
             <Text style={styles.company}>{job.company}</Text>
           </View>
           <View style={styles.ratingChip}>
@@ -113,17 +114,17 @@ export default function JobDetail() {
 
         <View style={styles.metaRow}>
           <Meta label={job.city} sub={`${job.distance_km} km away`} icon="location" />
-          <Meta label={job.experience} sub={t("experience")} icon="briefcase" />
-          <Meta label={job.job_type} sub={t("job_type")} icon="time" />
+          <Meta label={getJobField(job, "experience") || job.experience} sub={t("experience")} icon="briefcase" />
+          <Meta label={getJobField(job, "job_type") || job.job_type} sub={t("job_type")} icon="time" />
         </View>
 
         <Text style={styles.sectionTitle}>{t("job_description")}</Text>
-        <Text style={styles.desc}>{job.description}</Text>
+        <Text style={styles.desc}>{getJobField(job, "description") || job.description}</Text>
 
-        {(job.requirements || []).length > 0 && (
+        {getJobRequirements(job).length > 0 && (
           <>
             <Text style={styles.sectionTitle}>{t("requirements")}</Text>
-            {(job.requirements || []).map((r: string, i: number) => (
+            {getJobRequirements(job).map((r: string, i: number) => (
               <View key={i} style={styles.reqRow}>
                 <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />
                 <Text style={styles.reqText}>{r}</Text>

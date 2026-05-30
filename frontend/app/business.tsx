@@ -39,6 +39,9 @@ export default function BusinessPortal() {
   const [business, setBusiness] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
   const [jobs, setJobs] = useState<any[]>([]);
+  const [applications, setApplications] = useState<any[]>([]);
+  const [expandedJobs, setExpandedJobs] = useState<Record<string, boolean>>({});
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   // Post job form
   const [title, setTitle] = useState("");
@@ -55,12 +58,17 @@ export default function BusinessPortal() {
       const res = await api.verifyOtp(DEMO_PHONE, "0000", "business");
       const biz = res.user;
       setBusiness(biz);
-      const [s, j] = await Promise.all([
+      const [s, j, apps] = await Promise.all([
         api.getBusinessStats(biz.id),
         api.getBusinessJobs(biz.id),
+        api.getBusinessApplications(biz.id),
       ]);
       setStats(s);
       setJobs(j);
+      setApplications(apps);
+      const expanded: Record<string, boolean> = {};
+      for (const app of apps) expanded[app.job_id] = true;
+      setExpandedJobs(expanded);
     } catch (e) {
       console.warn("Business load failed", e);
     }
@@ -97,6 +105,24 @@ export default function BusinessPortal() {
     }
   };
 
+  const handleApplicationAction = async (appId: string, status: "Accepted" | "Rejected") => {
+    setUpdatingId(appId);
+    try {
+      await api.updateApplicationStatus(appId, status);
+      await load();
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Failed to update application");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const appsByJob = applications.reduce<Record<string, any[]>>((acc, app) => {
+    if (!acc[app.job_id]) acc[app.job_id] = [];
+    acc[app.job_id].push(app);
+    return acc;
+  }, {});
+
   return (
     <PortalLayout
       title="Business Portal"
@@ -113,6 +139,76 @@ export default function BusinessPortal() {
         <StatCard testID="stat-applications" icon="document-text" value={String(stats?.applications ?? "—")} label="Applications" color="#10B981" />
         <StatCard testID="stat-hired" icon="people" value={String(stats?.hired ?? "—")} label="Hired" color="#3B82F6" />
         <StatCard testID="stat-views" icon="eye" value={String(stats?.profile_views ?? "—")} label="Profile Views" color="#A855F7" />
+      </View>
+
+      <View style={[styles.card, { marginBottom: 16 }]}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.h2}>Your Jobs & Applicants</Text>
+          <Text style={styles.link}>{applications.length} total</Text>
+        </View>
+        {jobs.length === 0 ? (
+          <Text style={styles.empty}>No jobs yet. Post your first job →</Text>
+        ) : (
+          jobs.map((job) => {
+            const jobApps = appsByJob[job.id] || [];
+            const isOpen = expandedJobs[job.id];
+            return (
+              <View key={job.id} style={styles.jobBlock}>
+                <TouchableOpacity
+                  onPress={() => setExpandedJobs((prev) => ({ ...prev, [job.id]: !prev[job.id] }))}
+                  style={styles.jobBlockHeader}
+                >
+                  <Text style={styles.jobBlockTitle}>{job.title}</Text>
+                  <Text style={styles.jobBlockMeta}>
+                    {job.city} · {jobApps.length} applicants
+                  </Text>
+                </TouchableOpacity>
+                {isOpen && (
+                  <View style={styles.jobBlockBody}>
+                    {jobApps.length === 0 ? (
+                      <Text style={styles.empty}>No applications yet.</Text>
+                    ) : (
+                      jobApps.map((app) => (
+                        <View key={app.id} style={styles.applicantCard} testID={`biz-app-${app.id}`}>
+                          <Text style={styles.applicantName}>
+                            {app.worker?.name || app.worker?.phone || "Unknown"}
+                          </Text>
+                          <Text style={styles.applicantDetail}>Phone: {app.worker?.phone || "—"}</Text>
+                          <Text style={styles.applicantDetail}>City: {app.worker?.city || "—"}</Text>
+                          <Text style={styles.applicantDetail}>
+                            Skills: {app.worker?.skills?.join(", ") || "—"}
+                          </Text>
+                          <Text style={styles.applicantDetail}>
+                            Experience: {app.worker?.experience || "—"}
+                          </Text>
+                          <Text style={styles.applicantDetail}>Status: {app.status}</Text>
+                          {app.status === "Pending" && (
+                            <View style={styles.actionRow}>
+                              <TouchableOpacity
+                                style={styles.acceptBtn}
+                                disabled={updatingId === app.id}
+                                onPress={() => handleApplicationAction(app.id, "Accepted")}
+                              >
+                                <Text style={styles.acceptBtnText}>Accept</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={styles.rejectBtn}
+                                disabled={updatingId === app.id}
+                                onPress={() => handleApplicationAction(app.id, "Rejected")}
+                              >
+                                <Text style={styles.rejectBtnText}>Reject</Text>
+                              </TouchableOpacity>
+                            </View>
+                          )}
+                        </View>
+                      ))
+                    )}
+                  </View>
+                )}
+              </View>
+            );
+          })
+        )}
       </View>
 
       <View style={styles.twoCol}>
@@ -307,4 +403,46 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   ctaText: { color: "#FFF", fontWeight: "700", fontSize: 14 },
+  jobBlock: {
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    borderRadius: RADIUS.md,
+    marginTop: 10,
+    overflow: "hidden",
+  },
+  jobBlockHeader: {
+    padding: 12,
+    backgroundColor: COLORS.bgApp,
+  },
+  jobBlockTitle: { fontSize: 14, fontWeight: "700", color: COLORS.textPrimary },
+  jobBlockMeta: { fontSize: 12, color: COLORS.textSecondary, marginTop: 4 },
+  jobBlockBody: { padding: 12, gap: 10 },
+  applicantCard: {
+    padding: 12,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.bgApp,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    marginBottom: 8,
+  },
+  applicantName: { fontSize: 14, fontWeight: "700", color: COLORS.textPrimary, marginBottom: 6 },
+  applicantDetail: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 },
+  actionRow: { flexDirection: "row", gap: 8, marginTop: 10 },
+  acceptBtn: {
+    flex: 1,
+    backgroundColor: COLORS.success,
+    paddingVertical: 10,
+    borderRadius: RADIUS.md,
+    alignItems: "center",
+  },
+  acceptBtnText: { color: "#FFF", fontWeight: "700", fontSize: 13 },
+  rejectBtn: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: COLORS.error,
+    paddingVertical: 10,
+    borderRadius: RADIUS.md,
+    alignItems: "center",
+  },
+  rejectBtnText: { color: COLORS.error, fontWeight: "700", fontSize: 13 },
 });

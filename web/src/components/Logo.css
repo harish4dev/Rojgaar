@@ -1,0 +1,54 @@
+.logo__link {
+  text-decoration: none;
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 8px;
+}
+
+.logo--sm .logo__icon {
+  width: 28px;
+  height: 28px;
+}
+
+.logo--md .logo__icon {
+  width: 36px;
+  height: 36px;
+}
+
+.logo__text {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.logo--sm .logo__text {
+  font-size: 1rem;
+}
+
+.logo--dark .logo__text {
+  color: #fff;
+}
+
+.logo--light .logo__text {
+  color: var(--text-primary);
+}
+
+.logo__accent {
+  color: var(--primary);
+}
+
+.logo--dark .logo__accent {
+  color: var(--primary);
+}

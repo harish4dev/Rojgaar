@@ -40,12 +40,16 @@ const SKILLS = [
 ];
 
 const EXP = ["Fresher", "1-2 Years", "3-5 Years", "5+ Years"];
+const GENDERS = ["Male", "Female", "Other"];
+const COLLAR_TYPES = ["Blue Collar", "Gray Collar"];
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
   Looking: { bg: COLORS.successBg, fg: COLORS.success },
   Matched: { bg: "#DBEAFE", fg: "#1D4ED8" },
   Placed: { bg: COLORS.successBg, fg: COLORS.success },
 };
+
+type AddStep = "details" | "otp";
 
 export default function PartnerPortal() {
   const [active, setActive] = useState("dashboard");
@@ -54,9 +58,16 @@ export default function PartnerPortal() {
   const [candidates, setCandidates] = useState<any[]>([]);
 
   const [name, setName] = useState("");
+  const [employeeNumber, setEmployeeNumber] = useState("");
   const [skill, setSkill] = useState("Mason");
   const [exp, setExp] = useState("1-2 Years");
   const [city, setCity] = useState("Bengaluru");
+  const [gender, setGender] = useState("Male");
+  const [age, setAge] = useState("");
+  const [collarType, setCollarType] = useState("Blue Collar");
+  const [addStep, setAddStep] = useState<AddStep>("details");
+  const [otp, setOtp] = useState("");
+  const [pendingPhone, setPendingPhone] = useState("");
   const [adding, setAdding] = useState(false);
 
   const load = useCallback(async () => {
@@ -78,16 +89,63 @@ export default function PartnerPortal() {
     }, [load])
   );
 
-  const handleAdd = async () => {
-    if (!partner || !name) return;
+  const cleanedNumber = employeeNumber.replace(/\D/g, "");
+  const ageNum = parseInt(age, 10);
+  const detailsValid =
+    name.trim().length >= 2 &&
+    cleanedNumber.length === 10 &&
+    !Number.isNaN(ageNum) &&
+    ageNum >= 18 &&
+    ageNum <= 70;
+
+  const resetForm = () => {
+    setName("");
+    setEmployeeNumber("");
+    setAge("");
+    setOtp("");
+    setAddStep("details");
+    setPendingPhone("");
+  };
+
+  const buildPayload = () => ({
+    name: name.trim(),
+    employee_number: cleanedNumber,
+    skill,
+    experience: exp,
+    city: city.trim(),
+    gender,
+    age: ageNum,
+    collar_type: collarType,
+  });
+
+  const handleRequestOtp = async () => {
+    if (!partner || !detailsValid) return;
     setAdding(true);
     try {
-      await api.addPartnerCandidate(partner.id, { name, skill, experience: exp, city });
-      setName("");
-      Alert.alert("Person Added", "Candidate added to your network.");
+      const res = await api.requestPartnerCandidateOtp(partner.id, buildPayload());
+      setPendingPhone(res.phone);
+      setAddStep("otp");
+      Alert.alert("OTP Sent", "Ask the employee for their 4-digit code and enter it below.");
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Failed to send OTP");
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleConfirmOtp = async () => {
+    if (!partner || otp.replace(/\D/g, "").length !== 4) return;
+    setAdding(true);
+    try {
+      await api.confirmPartnerCandidate(partner.id, {
+        employee_number: pendingPhone || cleanedNumber,
+        otp: otp.replace(/\D/g, "").slice(0, 4),
+      });
+      resetForm();
+      Alert.alert("Verified", "Employee added to your network.");
       load();
     } catch (e: any) {
-      Alert.alert("Error", e?.message || "Failed to add");
+      Alert.alert("Error", e?.message || "OTP verification failed");
     } finally {
       setAdding(false);
     }
@@ -125,6 +183,7 @@ export default function PartnerPortal() {
           <View style={styles.tableHeader}>
             <Text style={[styles.th, { flex: 1.6 }]}>Name</Text>
             <Text style={[styles.th, { flex: 1 }]}>Skill</Text>
+            <Text style={[styles.th, { flex: 0.9 }]}>Collar</Text>
             <Text style={[styles.th, { flex: 1 }]}>Experience</Text>
             <Text style={[styles.th, { flex: 1 }]}>Location</Text>
             <Text style={[styles.th, { flex: 1 }]}>Status</Text>
@@ -143,6 +202,7 @@ export default function PartnerPortal() {
                     <Text style={[styles.td, { fontWeight: "600" }]}>{c.name}</Text>
                   </View>
                   <Text style={[styles.td, { flex: 1 }]}>{c.skill}</Text>
+                  <Text style={[styles.td, { flex: 0.9 }]}>{c.collar_type || "—"}</Text>
                   <Text style={[styles.td, { flex: 1 }]}>{c.experience}</Text>
                   <Text style={[styles.td, { flex: 1 }]}>{c.city}</Text>
                   <View style={[{ flex: 1, flexDirection: "row" }]}>
@@ -157,69 +217,167 @@ export default function PartnerPortal() {
         </View>
 
         <View style={[styles.card, { flex: 1 }]}>
-          <Text style={styles.h2}>Add New Person</Text>
-          <Text style={styles.label}>Name</Text>
-          <TextInput
-            testID="add-name"
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="Full name"
-            placeholderTextColor={COLORS.textSecondary}
-          />
+          <Text style={styles.h2}>{addStep === "details" ? "Add New Person" : "Verify Employee OTP"}</Text>
 
-          <Text style={styles.label}>Select Skill</Text>
-          <View style={styles.skillGrid}>
-            {SKILLS.map((s) => {
-              const a = skill === s.label;
-              return (
+          {addStep === "details" ? (
+            <>
+              <Text style={styles.label}>Name</Text>
+              <TextInput
+                testID="add-name"
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="Full name"
+                placeholderTextColor={COLORS.textSecondary}
+              />
+
+              <Text style={styles.label}>Employee Number (Phone)</Text>
+              <TextInput
+                testID="add-employee-number"
+                style={styles.input}
+                value={employeeNumber}
+                onChangeText={setEmployeeNumber}
+                keyboardType="phone-pad"
+                placeholder="9876543210"
+                placeholderTextColor={COLORS.textSecondary}
+              />
+
+              <Text style={styles.label}>Gender</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {GENDERS.map((g) => {
+                  const a = gender === g;
+                  return (
+                    <TouchableOpacity
+                      key={g}
+                      testID={`add-gender-${g}`}
+                      onPress={() => setGender(g)}
+                      style={[styles.chip, a && styles.chipActive]}
+                    >
+                      <Text style={[styles.chipText, a && { color: COLORS.primary }]}>{g}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.label}>Age</Text>
+              <TextInput
+                testID="add-age"
+                style={[styles.input, { width: 100 }]}
+                value={age}
+                onChangeText={(v) => setAge(v.replace(/[^0-9]/g, "").slice(0, 2))}
+                keyboardType="number-pad"
+                placeholder="25"
+                placeholderTextColor={COLORS.textSecondary}
+              />
+
+              <Text style={styles.label}>Collar Type</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {COLLAR_TYPES.map((c) => {
+                  const a = collarType === c;
+                  return (
+                    <TouchableOpacity
+                      key={c}
+                      testID={`add-collar-${c}`}
+                      onPress={() => setCollarType(c)}
+                      style={[styles.chip, a && styles.chipActive]}
+                    >
+                      <Text style={[styles.chipText, a && { color: COLORS.primary }]}>{c}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.label}>Select Skill</Text>
+              <View style={styles.skillGrid}>
+                {SKILLS.map((s) => {
+                  const a = skill === s.label;
+                  return (
+                    <TouchableOpacity
+                      key={s.label}
+                      testID={`add-skill-${s.label}`}
+                      onPress={() => setSkill(s.label)}
+                      style={[styles.skillTile, a && styles.skillTileActive]}
+                    >
+                      <Ionicons name={s.icon} size={16} color={a ? COLORS.primary : COLORS.textSecondary} />
+                      <Text style={[styles.skillLabel, a && { color: COLORS.primary }]}>{s.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.label}>Experience</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {EXP.map((e) => {
+                  const a = exp === e;
+                  return (
+                    <TouchableOpacity
+                      key={e}
+                      testID={`add-exp-${e}`}
+                      onPress={() => setExp(e)}
+                      style={[styles.chip, a && styles.chipActive]}
+                    >
+                      <Text style={[styles.chipText, a && { color: COLORS.primary }]}>{e}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.label}>Location</Text>
+              <TextInput
+                testID="add-city"
+                style={styles.input}
+                value={city}
+                onChangeText={setCity}
+                placeholderTextColor={COLORS.textSecondary}
+              />
+
+              <TouchableOpacity
+                testID="add-person-btn"
+                onPress={handleRequestOtp}
+                disabled={!detailsValid || adding}
+                style={[styles.cta, (!detailsValid || adding) && { opacity: 0.5 }]}
+              >
+                <Text style={styles.ctaText}>{adding ? "Sending…" : "Send OTP to Employee"}</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.hint}>
+                OTP sent to {pendingPhone}. Enter the code the employee received.
+              </Text>
+              <Text style={styles.label}>4-digit OTP</Text>
+              <TextInput
+                testID="add-otp"
+                style={[styles.input, { width: 120, letterSpacing: 8 }]}
+                value={otp}
+                onChangeText={(v) => setOtp(v.replace(/\D/g, "").slice(0, 4))}
+                keyboardType="number-pad"
+                maxLength={4}
+                placeholder="1234"
+                placeholderTextColor={COLORS.textSecondary}
+              />
+              <View style={{ flexDirection: "row", gap: 8, marginTop: 16 }}>
                 <TouchableOpacity
-                  key={s.label}
-                  testID={`add-skill-${s.label}`}
-                  onPress={() => setSkill(s.label)}
-                  style={[styles.skillTile, a && styles.skillTileActive]}
+                  testID="add-otp-back"
+                  onPress={() => {
+                    setAddStep("details");
+                    setOtp("");
+                  }}
+                  style={[styles.cta, styles.ctaSecondary, { flex: 1 }]}
                 >
-                  <Ionicons name={s.icon} size={16} color={a ? COLORS.primary : COLORS.textSecondary} />
-                  <Text style={[styles.skillLabel, a && { color: COLORS.primary }]}>{s.label}</Text>
+                  <Text style={[styles.ctaText, { color: COLORS.textPrimary }]}>Back</Text>
                 </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <Text style={styles.label}>Experience</Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {EXP.map((e) => {
-              const a = exp === e;
-              return (
                 <TouchableOpacity
-                  key={e}
-                  testID={`add-exp-${e}`}
-                  onPress={() => setExp(e)}
-                  style={[styles.chip, a && styles.chipActive]}
+                  testID="add-confirm-otp"
+                  onPress={handleConfirmOtp}
+                  disabled={otp.length !== 4 || adding}
+                  style={[styles.cta, { flex: 2 }, (otp.length !== 4 || adding) && { opacity: 0.5 }]}
                 >
-                  <Text style={[styles.chipText, a && { color: COLORS.primary }]}>{e}</Text>
+                  <Text style={styles.ctaText}>{adding ? "Verifying…" : "Verify & Add"}</Text>
                 </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <Text style={styles.label}>Location</Text>
-          <TextInput
-            testID="add-city"
-            style={styles.input}
-            value={city}
-            onChangeText={setCity}
-            placeholderTextColor={COLORS.textSecondary}
-          />
-
-          <TouchableOpacity
-            testID="add-person-btn"
-            onPress={handleAdd}
-            disabled={!name || adding}
-            style={[styles.cta, (!name || adding) && { opacity: 0.5 }]}
-          >
-            <Text style={styles.ctaText}>{adding ? "Adding…" : "Next"}</Text>
-          </TouchableOpacity>
+              </View>
+            </>
+          )}
         </View>
       </View>
     </PortalLayout>
@@ -229,6 +387,7 @@ export default function PartnerPortal() {
 const styles = StyleSheet.create({
   h1: { fontSize: 26, fontWeight: "800", color: COLORS.textPrimary, marginBottom: 16 },
   h2: { fontSize: 16, fontWeight: "700", color: COLORS.textPrimary, marginBottom: 12 },
+  hint: { fontSize: 13, color: COLORS.textSecondary, marginBottom: 8 },
   statsRow: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 16 },
   twoCol: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
   card: {
@@ -301,6 +460,12 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     alignItems: "center",
     paddingVertical: 14,
+    marginTop: 16,
+  },
+  ctaSecondary: {
+    backgroundColor: "#FFF",
+    borderWidth: 1.5,
+    borderColor: COLORS.borderLight,
     marginTop: 16,
   },
   ctaText: { color: "#FFF", fontWeight: "700", fontSize: 14 },

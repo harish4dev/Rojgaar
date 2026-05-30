@@ -1,0 +1,123 @@
+.otp-form {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 40px 32px;
+  background: #fff;
+  border-radius: 20px;
+  border: 1px solid var(--border-light);
+  box-shadow: 0 20px 50px rgba(17, 24, 39, 0.08);
+}
+
+.otp-form__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--primary-light);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.otp-form h1 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.otp-form__subtitle {
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  margin: 0 0 28px;
+  line-height: 1.5;
+}
+
+.otp-form form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.otp-form label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.otp-form input {
+  padding: 14px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-size: 1rem;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.otp-form input:focus {
+  border-color: var(--primary);
+}
+
+.otp-form button[type='submit'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 12px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.otp-form button[type='submit']:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.otp-form button[type='submit']:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.otp-form__hint {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0 0 4px;
+  line-height: 1.5;
+}
+
+.otp-form__back {
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 0;
+}
+
+.otp-form__error {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  background: var(--error-bg);
+  color: var(--error);
+  border-radius: 10px;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 480px) {
+  .otp-form {
+    padding: 28px 20px;
+    border-radius: 16px;
+  }
+}

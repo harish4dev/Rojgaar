@@ -43,3 +43,9 @@ export const FONT = {
   medium: "500" as const,
   regular: "400" as const,
 };
+
+export const LAYOUT = {
+  contentMaxWidth: 760,
+  tabBarHeight: 70,
+  tabBarHeightWide: 64,
+};

@@ -50,12 +50,20 @@ export const api = {
   getBusiness: (id: string) => req(`/businesses/${id}`),
   getBusinessStats: (id: string) => req(`/businesses/${id}/stats`),
   getBusinessJobs: (id: string) => req(`/businesses/${id}/jobs`),
+  getBusinessApplications: (id: string) => req(`/businesses/${id}/applications`),
+  updateApplicationStatus: (applicationId: string, status: string) =>
+    req(`/applications/${applicationId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
 
   getPartner: (id: string) => req(`/partners/${id}`),
   getPartnerStats: (id: string) => req(`/partners/${id}/stats`),
   getPartnerCandidates: (id: string) => req(`/partners/${id}/candidates`),
-  addPartnerCandidate: (id: string, data: any) =>
-    req(`/partners/${id}/candidates`, { method: "POST", body: JSON.stringify(data) }),
+  requestPartnerCandidateOtp: (id: string, data: any) =>
+    req(`/partners/${id}/candidates/request-otp`, { method: "POST", body: JSON.stringify(data) }),
+  confirmPartnerCandidate: (id: string, data: { employee_number: string; otp: string }) =>
+    req(`/partners/${id}/candidates/confirm`, { method: "POST", body: JSON.stringify(data) }),
 
   getCities: () => req("/meta/cities"),
   getIndustries: () => req("/meta/industries"),

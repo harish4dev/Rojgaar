@@ -50,17 +50,38 @@ class TestAuth:
     def test_verify_otp_business_demo(self, s):
         r = s.post(f"{API}/auth/verify-otp", json={"phone": "9999999999", "otp": "0000", "role": "business"})
         assert r.status_code == 200
-        u = r.json()["user"]
+        data = r.json()
+        u = data["user"]
         assert u["company"] == "Sharma Construction"
+        assert data["needs_profile"] is False
         assert "_id" not in u
         pytest.business_id = u["id"]
 
     def test_verify_otp_partner_demo(self, s):
         r = s.post(f"{API}/auth/verify-otp", json={"phone": "8888888888", "otp": "9999", "role": "partner"})
         assert r.status_code == 200
-        u = r.json()["user"]
+        data = r.json()
+        u = data["user"]
+        assert data["needs_profile"] is False
         assert "_id" not in u
         pytest.partner_id = u["id"]
+
+    def test_verify_otp_new_business_needs_profile(self, s):
+        phone = f"8{uuid.uuid4().int % 1000000000:09d}"
+        r = s.post(f"{API}/auth/verify-otp", json={"phone": phone, "otp": "1234", "role": "business"})
+        assert r.status_code == 200
+        data = r.json()
+        assert data["is_new"] is True
+        assert data["needs_profile"] is True
+        biz_id = data["user"]["id"]
+        r2 = s.patch(
+            f"{API}/businesses/{biz_id}",
+            json={"name": "TEST Biz Owner", "company": "TEST Company", "city": "Chennai"},
+        )
+        assert r2.status_code == 200
+        assert r2.json()["profile_complete"] is True
+        r3 = s.post(f"{API}/auth/verify-otp", json={"phone": phone, "otp": "1234", "role": "business"})
+        assert r3.json()["needs_profile"] is False
 
     @pytest.mark.parametrize("bad_otp", ["123", "12345", "abcd", ""])
     def test_verify_otp_rejects_non_4_digit(self, s, bad_otp):
@@ -217,6 +238,27 @@ class TestBusiness:
         for j in jobs:
             assert "applications_count" in j
 
+    def test_business_applications_with_worker(self, s):
+        r = s.get(f"{API}/businesses/{pytest.business_id}/applications")
+        assert r.status_code == 200
+        apps = r.json()
+        assert isinstance(apps, list)
+        if apps:
+            app = apps[0]
+            assert "worker" in app
+            assert "job" in app
+            assert "worker_id" in app
+            assert "_id" not in app
+
+    def test_update_application_status(self, s):
+        apps = s.get(f"{API}/businesses/{pytest.business_id}/applications").json()
+        if not apps:
+            pytest.skip("No applications to test")
+        app_id = apps[0]["id"]
+        r = s.patch(f"{API}/applications/{app_id}", json={"status": "Accepted"})
+        assert r.status_code == 200
+        assert r.json()["status"] == "Accepted"
+
 
 # ---------- Partner ----------
 class TestPartner:
@@ -238,11 +280,28 @@ class TestPartner:
         for nm in ("Mahesh Kumar", "Suresh R", "Raju P", "Prakash M"):
             assert nm in names
 
-    def test_add_partner_candidate(self, s):
-        payload = {"name": "TEST_Candidate", "skill": "Mason", "experience": "Fresher", "city": "Bengaluru"}
-        r = s.post(f"{API}/partners/{pytest.partner_id}/candidates", json=payload)
+    def test_add_partner_candidate_with_otp(self, s):
+        payload = {
+            "name": "TEST_Candidate",
+            "employee_number": "9876500099",
+            "skill": "Mason",
+            "experience": "Fresher",
+            "city": "Bengaluru",
+            "gender": "Male",
+            "age": 25,
+            "collar_type": "Blue Collar",
+        }
+        r = s.post(f"{API}/partners/{pytest.partner_id}/candidates/request-otp", json=payload)
         assert r.status_code == 200
-        assert r.json()["name"] == "TEST_Candidate"
+        assert r.json()["success"] is True
+        r2 = s.post(
+            f"{API}/partners/{pytest.partner_id}/candidates/confirm",
+            json={"employee_number": "9876500099", "otp": "1234"},
+        )
+        assert r2.status_code == 200
+        assert r2.json()["candidate"]["name"] == "TEST_Candidate"
+        assert r2.json()["candidate"]["gender"] == "Male"
+        assert r2.json()["candidate"]["collar_type"] == "Blue Collar"
 
 
 # ---------- Meta ----------

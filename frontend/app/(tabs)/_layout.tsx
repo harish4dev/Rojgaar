@@ -1,22 +1,41 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Platform } from "react-native";
 import { COLORS } from "@/src/constants/theme";
 import { t } from "@/src/i18n/translations";
+import { useTabBarInsets } from "@/src/hooks/useTabBarInsets";
 
 export default function TabsLayout() {
+  const { tabBarStyle } = useTabBarInsets();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: "#9CA3AF",
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600", marginBottom: 4 },
+        tabBarHideOnKeyboard: true,
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "600",
+          marginBottom: Platform.OS === "ios" ? 0 : 2,
+        },
+        tabBarIconStyle: {
+          marginTop: 2,
+        },
         tabBarStyle: {
-          height: 70,
-          paddingTop: 8,
-          paddingBottom: 10,
+          ...tabBarStyle,
+          borderTopWidth: 1,
           borderTopColor: COLORS.borderLight,
-          backgroundColor: "#FFF",
+          backgroundColor: COLORS.bgCard,
+          elevation: 8,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 6,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 2,
         },
       }}
     >

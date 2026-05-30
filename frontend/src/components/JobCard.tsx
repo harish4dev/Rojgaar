@@ -5,17 +5,14 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
-  Linking,
   Platform,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { COLORS, RADIUS } from "@/src/constants/theme";
 import { t } from "@/src/i18n/translations";
-import { api } from "@/src/api/client";
-import { session } from "@/src/store/session";
 import { getJobField } from "@/src/utils/jobTranslation";
+import { callAfterApply } from "@/src/utils/jobActions";
 
 interface Job {
   id: string;
@@ -45,24 +42,12 @@ export default function JobCard({
   const tExperience = getJobField(job, "experience") || job.experience;
   const tJobType = getJobField(job, "job_type") || job.job_type;
 
-  const handleCall = async () => {
-    try {
-      const wid = await session.getWorkerId();
-      if (wid) {
-        await api.apply(wid, job.id);
-        setApplied(true);
-        onApplied?.();
-      }
-    } catch {
-      // ignore — still try to open dialer
-    }
-    if (Platform.OS === "web") {
-      Alert.alert(t("applied_success"), t("applied_success_caption"));
-    } else {
-      Linking.openURL("tel:+919876543210").catch(() => {
-        Alert.alert(t("applied_success"), t("applied_success_caption"));
-      });
-    }
+  const handleCall = async (e?: any) => {
+    e?.stopPropagation?.();
+    const didApply = await callAfterApply(job.id);
+    if (!didApply) return;
+    setApplied(true);
+    onApplied?.();
   };
 
   return (
@@ -73,9 +58,20 @@ export default function JobCard({
       style={styles.card}
     >
       <View style={styles.topRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.title}>{tTitle}</Text>
-          <Text style={styles.company}>{job.company}</Text>
+        {job.image_url ? (
+          <Image source={{ uri: job.image_url }} style={styles.thumb} />
+        ) : (
+          <View style={[styles.thumb, styles.thumbPlaceholder]}>
+            <Ionicons name="briefcase" size={22} color={COLORS.primary} />
+          </View>
+        )}
+        <View style={styles.body}>
+          <Text style={styles.title} numberOfLines={2}>
+            {tTitle}
+          </Text>
+          <Text style={styles.company} numberOfLines={1}>
+            {job.company}
+          </Text>
           <Text style={styles.salary}>
             ₹{job.salary_min.toLocaleString("en-IN")} - ₹{job.salary_max.toLocaleString("en-IN")}{" "}
             <Text style={styles.salaryMonth}>/month</Text>
@@ -85,15 +81,19 @@ export default function JobCard({
           </Text>
           <View style={styles.tagRow}>
             <View style={styles.tag}>
-              <Text style={styles.tagText}>{tExperience}</Text>
+              <Text style={styles.tagText} numberOfLines={1}>
+                {tExperience}
+              </Text>
             </View>
             <View style={styles.tag}>
-              <Text style={styles.tagText}>{tJobType}</Text>
+              <Text style={styles.tagText} numberOfLines={1}>
+                {tJobType}
+              </Text>
             </View>
           </View>
         </View>
-        {job.image_url ? <Image source={{ uri: job.image_url }} style={styles.thumb} /> : null}
       </View>
+
       <TouchableOpacity
         testID={`job-call-${job.id}`}
         onPress={handleCall}
@@ -108,15 +108,24 @@ export default function JobCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFF",
+    backgroundColor: COLORS.bgCard,
     borderRadius: RADIUS.xl,
     padding: 16,
-    paddingBottom: 56,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: COLORS.borderLight,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#111827",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+      },
+      android: { elevation: 2 },
+    }),
   },
   topRow: { flexDirection: "row", gap: 12 },
+  body: { flex: 1, minWidth: 0 },
   title: { fontSize: 17, fontWeight: "700", color: COLORS.textPrimary },
   company: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
   salary: { fontSize: 15, fontWeight: "700", color: COLORS.textPrimary, marginTop: 6 },
@@ -128,21 +137,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: RADIUS.full,
+    maxWidth: "100%",
   },
   tagText: { fontSize: 11, color: COLORS.primary, fontWeight: "600" },
-  thumb: { width: 60, height: 60, borderRadius: RADIUS.md },
+  thumb: { width: 64, height: 64, borderRadius: RADIUS.md, flexShrink: 0 },
+  thumbPlaceholder: {
+    backgroundColor: COLORS.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   callBtn: {
-    position: "absolute",
-    right: 16,
-    bottom: 16,
+    marginTop: 14,
+    alignSelf: "stretch",
     backgroundColor: COLORS.primary,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: RADIUS.full,
+    paddingVertical: 12,
+    borderRadius: RADIUS.lg,
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    justifyContent: "center",
+    gap: 6,
   },
   appliedBtn: { backgroundColor: COLORS.success },
-  callText: { color: "#FFF", fontWeight: "600", fontSize: 13 },
+  callText: { color: "#FFF", fontWeight: "600", fontSize: 14 },
 });

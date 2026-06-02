@@ -17,6 +17,9 @@ import { session } from "@/src/store/session";
 import { t } from "@/src/i18n/translations";
 import ScreenContainer from "@/src/components/ScreenContainer";
 import EmptyState from "@/src/components/EmptyState";
+import ErrorBanner from "@/src/components/ErrorBanner";
+import { viewedJobs, type ViewedJobRecord } from "@/src/store/viewedJobs";
+import { getApiErrorMessage } from "@/src/utils/apiError";
 import { useResponsive } from "@/src/hooks/useResponsive";
 import { useTabBarInsets } from "@/src/hooks/useTabBarInsets";
 
@@ -36,19 +39,26 @@ export default function ActivityScreen() {
   const [tab, setTab] = useState<Tab>("applied");
   const [applied, setApplied] = useState<any[]>([]);
   const [saved, setSaved] = useState<any[]>([]);
+  const [viewed, setViewed] = useState<ViewedJobRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const wid = await session.getWorkerId();
     if (!wid) return;
     setLoading(true);
     try {
-      const [apps, sv] = await Promise.all([
+      setError(null);
+      const [apps, sv, recent] = await Promise.all([
         api.listApplications(wid),
         api.listSavedJobs(wid),
+        viewedJobs.list(),
       ]);
       setApplied(apps);
       setSaved(sv);
+      setViewed(recent);
+    } catch (e) {
+      setError(getApiErrorMessage(e, "Could not load activity."));
     } finally {
       setLoading(false);
     }
@@ -60,7 +70,7 @@ export default function ActivityScreen() {
     }, [load])
   );
 
-  const counts = { applied: applied.length, viewed: 0, saved: saved.length };
+  const counts = { applied: applied.length, viewed: viewed.length, saved: saved.length };
 
   return (
     <SafeAreaView style={styles.container} testID="activity-screen" edges={["top"]}>
@@ -96,6 +106,9 @@ export default function ActivityScreen() {
           contentContainerStyle={[styles.list, { paddingHorizontal: horizontalPadding, paddingBottom: scrollBottomPadding }]}
           showsVerticalScrollIndicator={false}
         >
+          {error ? (
+            <ErrorBanner message={error} onRetry={load} onDismiss={() => setError(null)} />
+          ) : null}
           {loading ? (
             <View style={styles.loaderWrap}>
               <ActivityIndicator color={COLORS.primary} />
@@ -123,11 +136,42 @@ export default function ActivityScreen() {
           )}
 
           {!loading && tab === "viewed" && (
-            <EmptyState
-              icon="eye-outline"
-              title="No recently viewed jobs"
-              subtitle="Jobs you open will appear here for quick access."
-            />
+            viewed.length === 0 ? (
+              <EmptyState
+                icon="eye-outline"
+                title="No recently viewed jobs"
+                subtitle="Jobs you open will appear here for quick access."
+              />
+            ) : (
+              viewed.map((j) => (
+                <TouchableOpacity
+                  key={j.id}
+                  testID={`viewed-row-${j.id}`}
+                  onPress={() => router.push(`/job/${j.id}` as any)}
+                  style={styles.row}
+                >
+                  {j.image_url ? (
+                    <Image source={{ uri: j.image_url }} style={styles.thumb} />
+                  ) : (
+                    <View style={[styles.thumb, styles.thumbPlaceholder]}>
+                      <Ionicons name="briefcase" size={20} color={COLORS.primary} />
+                    </View>
+                  )}
+                  <View style={styles.rowBody}>
+                    <Text style={styles.rowTitle} numberOfLines={2}>
+                      {j.title}
+                    </Text>
+                    <Text style={styles.rowSub} numberOfLines={1}>
+                      {j.company}
+                    </Text>
+                    <Text style={styles.rowMeta} numberOfLines={1}>
+                      Viewed {new Date(j.viewed_at).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              ))
+            )
           )}
 
           {!loading && tab === "saved" && (

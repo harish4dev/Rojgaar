@@ -8,33 +8,47 @@
   gap: 10px;
 }
 
-.logo__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--primary);
-  color: #fff;
-  border-radius: 8px;
+.logo__img {
+  display: block;
+  height: auto;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
-.logo--sm .logo__icon {
-  width: 28px;
-  height: 28px;
+.logo--sm .logo__img {
+  height: 32px;
 }
 
-.logo--md .logo__icon {
-  width: 36px;
-  height: 36px;
+.logo--md .logo__img {
+  height: 44px;
+}
+
+.logo--lg .logo__img {
+  height: 64px;
+}
+
+.logo--xl .logo__img {
+  height: 120px;
 }
 
 .logo__text {
   font-size: 1.25rem;
   font-weight: 800;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  line-height: 1;
 }
 
 .logo--sm .logo__text {
   font-size: 1rem;
+}
+
+.logo--lg .logo__text {
+  font-size: 1.375rem;
+}
+
+.logo--xl .logo__text {
+  font-size: 1.75rem;
 }
 
 .logo--dark .logo__text {
@@ -46,9 +60,5 @@
 }
 
 .logo__accent {
-  color: var(--primary);
-}
-
-.logo--dark .logo__accent {
   color: var(--primary);
 }

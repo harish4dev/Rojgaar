@@ -38,6 +38,20 @@
   margin-bottom: 16px;
 }
 
+.dash-link-btn {
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.dash-link-btn:hover {
+  text-decoration: underline;
+}
+
 .dash-muted {
   font-size: 0.8125rem;
   color: var(--text-secondary);
@@ -53,6 +67,12 @@
   font-weight: 700;
   color: var(--text-primary);
   margin: 0 0 12px;
+}
+
+.dash-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .dash-card__header {
@@ -183,6 +203,15 @@
 
 .dash-layout--full {
   grid-template-columns: 1fr;
+}
+
+.dash-layout--single {
+  grid-template-columns: 1fr;
+  max-width: 720px;
+}
+
+.dash-message--banner {
+  margin-bottom: 16px;
 }
 
 .dash-jobs-list {

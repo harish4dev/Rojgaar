@@ -5,6 +5,7 @@ def build_jobs_query(
     city: Optional[str],
     industry: Optional[str],
     job_type: Optional[str],
+    experience: Optional[str],
     salary_min: Optional[int],
     salary_max: Optional[int],
     search: Optional[str],
@@ -16,6 +17,8 @@ def build_jobs_query(
         query["industry"] = industry
     if job_type:
         query["job_type"] = job_type
+    if experience:
+        query["experience"] = experience
     if salary_min is not None:
         query["salary_max"] = {"$gte": salary_min}
     if salary_max is not None:

@@ -1,0 +1,44 @@
+.store-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.store-badges__link {
+  display: block;
+  line-height: 0;
+  text-decoration: none;
+  border-radius: 8px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.store-badges__link:hover {
+  transform: translateY(-2px);
+  opacity: 0.95;
+}
+
+.store-badges__link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.store-badge {
+  display: block;
+  height: 46px;
+  width: auto;
+}
+
+.store-badges--dark .store-badges__link:hover {
+  box-shadow: 0 10px 24px rgba(17, 24, 39, 0.18);
+}
+
+.store-badges--light .store-badges__link:hover {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+}
+
+@media (max-width: 380px) {
+  .store-badge {
+    height: 40px;
+  }
+}

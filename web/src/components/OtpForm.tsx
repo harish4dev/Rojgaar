@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ArrowRight, Smartphone, UserCircle } from 'lucide-react'
 import { api, type Business, type Partner, type Role } from '@/api/client'
 import { setSession } from '@/store/auth'
+import { OTP_LENGTH, digitsOnlyOtp, isValidOtp } from '@/constants/otp'
 import './OtpForm.css'
 
 interface OtpFormProps {
@@ -48,8 +49,8 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (otp.length !== 4) {
-      setError('Enter the 4-digit OTP')
+    if (!isValidOtp(otp)) {
+      setError(`Enter the ${OTP_LENGTH}-digit OTP`)
       return
     }
     setError('')
@@ -152,21 +153,18 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
 
       {step === 'otp' && (
         <form onSubmit={handleVerify}>
-          <p className="otp-form__hint">
-            Any 4-digit code works in demo mode.
-          </p>
           <label htmlFor="otp">Enter OTP</label>
           <input
             id="otp"
             type="text"
             inputMode="numeric"
-            maxLength={4}
+            maxLength={OTP_LENGTH}
             placeholder="1234"
             value={otp}
-            onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 4))}
+            onChange={(e) => setOtp(digitsOnlyOtp(e.target.value))}
             autoFocus
           />
-          <button type="submit" disabled={loading || otp.length !== 4}>
+          <button type="submit" disabled={loading || !isValidOtp(otp)}>
             {loading ? 'Verifying…' : 'Verify OTP'}
             {!loading && <ArrowRight size={16} />}
           </button>

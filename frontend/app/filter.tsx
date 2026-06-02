@@ -7,6 +7,7 @@ import PrimaryButton from "@/src/components/PrimaryButton";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import ScreenContainer from "@/src/components/ScreenContainer";
 import { api } from "@/src/api/client";
+import { jobFilters } from "@/src/store/jobFilters";
 import { t } from "@/src/i18n/translations";
 import { useResponsive } from "@/src/hooks/useResponsive";
 
@@ -39,10 +40,22 @@ export default function FilterScreen() {
       .getIndustries()
       .then((data) => setIndustries(data))
       .catch(() => setIndustries([]));
+    jobFilters.get().then((saved) => {
+      if (!saved) return;
+      if (saved.job_type) setJobType(saved.job_type);
+      if (saved.industry) setIndustry(saved.industry);
+      if (saved.experience) setExp(saved.experience);
+      if (saved.salary_min != null && saved.salary_max != null) {
+        const bucket = SALARY_BUCKETS.find(
+          (b) => b.min === saved.salary_min && b.max === saved.salary_max
+        );
+        if (bucket) setSalary(bucket);
+      }
+    });
   }, []);
 
-  const apply = async () => {
-    const params: any = {};
+  const buildParams = () => {
+    const params: Record<string, string | number> = {};
     if (jobType) params.job_type = jobType;
     if (industry) params.industry = industry;
     if (exp) params.experience = exp;
@@ -50,17 +63,24 @@ export default function FilterScreen() {
       params.salary_min = salary.min;
       params.salary_max = salary.max;
     }
-    const jobs = await api.listJobs(params);
+    return params;
+  };
+
+  const apply = async () => {
+    const params = buildParams();
+    const jobs = await api.listJobs({ ...params, limit: 100 });
+    await jobFilters.set(Object.keys(params).length ? params : null);
     setCount(jobs.length);
     setTimeout(() => router.back(), 450);
   };
 
-  const reset = () => {
+  const reset = async () => {
     setJobType(null);
     setIndustry(null);
     setExp(null);
     setSalary(null);
     setCount(null);
+    await jobFilters.clear();
   };
 
   return (

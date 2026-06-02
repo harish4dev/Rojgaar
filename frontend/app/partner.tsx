@@ -12,6 +12,7 @@ import { useFocusEffect } from "expo-router";
 import { COLORS, RADIUS } from "@/src/constants/theme";
 import PortalLayout, { StatCard } from "@/src/components/PortalLayout";
 import { api } from "@/src/api/client";
+import { OTP_LENGTH, digitsOnlyOtp, isValidOtp } from "@/src/constants/otp";
 
 const DEMO_PHONE = "8888888888";
 
@@ -125,7 +126,7 @@ export default function PartnerPortal() {
       const res = await api.requestPartnerCandidateOtp(partner.id, buildPayload());
       setPendingPhone(res.phone);
       setAddStep("otp");
-      Alert.alert("OTP Sent", "Ask the employee for their 4-digit code and enter it below.");
+      Alert.alert("OTP Sent", "Ask the employee for the SMS verification code.");
     } catch (e: any) {
       Alert.alert("Error", e?.message || "Failed to send OTP");
     } finally {
@@ -134,12 +135,12 @@ export default function PartnerPortal() {
   };
 
   const handleConfirmOtp = async () => {
-    if (!partner || otp.replace(/\D/g, "").length !== 4) return;
+    if (!partner || !isValidOtp(otp)) return;
     setAdding(true);
     try {
       await api.confirmPartnerCandidate(partner.id, {
         employee_number: pendingPhone || cleanedNumber,
-        otp: otp.replace(/\D/g, "").slice(0, 4),
+        otp: digitsOnlyOtp(otp),
       });
       resetForm();
       Alert.alert("Verified", "Employee added to your network.");
@@ -345,14 +346,14 @@ export default function PartnerPortal() {
               <Text style={styles.hint}>
                 OTP sent to {pendingPhone}. Enter the code the employee received.
               </Text>
-              <Text style={styles.label}>4-digit OTP</Text>
+              <Text style={styles.label}>{OTP_LENGTH}-digit OTP</Text>
               <TextInput
                 testID="add-otp"
                 style={[styles.input, { width: 120, letterSpacing: 8 }]}
                 value={otp}
-                onChangeText={(v) => setOtp(v.replace(/\D/g, "").slice(0, 4))}
+                onChangeText={(v) => setOtp(digitsOnlyOtp(v))}
                 keyboardType="number-pad"
-                maxLength={4}
+                maxLength={OTP_LENGTH}
                 placeholder="1234"
                 placeholderTextColor={COLORS.textSecondary}
               />
@@ -370,8 +371,8 @@ export default function PartnerPortal() {
                 <TouchableOpacity
                   testID="add-confirm-otp"
                   onPress={handleConfirmOtp}
-                  disabled={otp.length !== 4 || adding}
-                  style={[styles.cta, { flex: 2 }, (otp.length !== 4 || adding) && { opacity: 0.5 }]}
+                  disabled={!isValidOtp(otp) || adding}
+                  style={[styles.cta, { flex: 2 }, (!isValidOtp(otp) || adding) && { opacity: 0.5 }]}
                 >
                   <Text style={styles.ctaText}>{adding ? "Verifying…" : "Verify & Add"}</Text>
                 </TouchableOpacity>

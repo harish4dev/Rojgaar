@@ -5,26 +5,18 @@ import {
   Briefcase,
   CheckCircle2,
   DollarSign,
-  FileText,
-  GitBranch,
-  MessageSquare,
-  Settings,
+  UserPlus,
   Users,
 } from 'lucide-react'
 import PortalLayout, { StatCard } from '@/components/PortalLayout'
 import { api, type Partner, type PartnerCandidate } from '@/api/client'
 import { clearSession, getSession, isPartner, isProfileComplete } from '@/store/auth'
+import { OTP_LENGTH, digitsOnlyOtp, isValidOtp } from '@/constants/otp'
 import '../Dashboard.css'
 
 const NAV = [
   { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-  { key: 'people', label: 'People / Candidates', icon: Users },
-  { key: 'network', label: 'My Network', icon: GitBranch },
-  { key: 'matches', label: 'Job Matches', icon: Briefcase },
-  { key: 'earnings', label: 'Earnings', icon: DollarSign },
-  { key: 'reports', label: 'Reports', icon: FileText },
-  { key: 'messages', label: 'Messages', icon: MessageSquare },
-  { key: 'settings', label: 'Settings', icon: Settings },
+  { key: 'candidates', label: 'Candidates', icon: Users },
 ]
 
 const SKILLS = [
@@ -51,6 +43,39 @@ const STATUS_CLASS: Record<string, string> = {
 }
 
 type AddStep = 'details' | 'otp'
+
+function CandidatesTable({ candidates }: { candidates: PartnerCandidate[] }) {
+  return (
+    <div className="dash-table dash-table--partner">
+      <div className="dash-table__head">
+        <span>Name</span>
+        <span>Employee No.</span>
+        <span>Skill</span>
+        <span>Collar</span>
+        <span>Experience</span>
+        <span>Location</span>
+        <span>Status</span>
+      </div>
+      {candidates.length === 0 ? (
+        <p className="dash-empty">No candidates yet. Add your first one from the Candidates tab.</p>
+      ) : (
+        candidates.map((c) => (
+          <div key={c.id} className="dash-table__row">
+            <span className="dash-table__strong">{c.name}</span>
+            <span>{c.employee_number || '—'}</span>
+            <span>{c.skill}</span>
+            <span>{c.collar_type || '—'}</span>
+            <span>{c.experience}</span>
+            <span>{c.city}</span>
+            <span className={`dash-pill dash-pill--${STATUS_CLASS[c.status] || 'looking'}`}>
+              {c.status}
+            </span>
+          </div>
+        ))
+      )}
+    </div>
+  )
+}
 
 export default function PartnerDashboard() {
   const session = useMemo(() => getSession(), [])
@@ -135,7 +160,7 @@ export default function PartnerDashboard() {
       })
       setPendingPhone(res.phone)
       setAddStep('otp')
-      setMessage('OTP sent to employee. Enter the 4-digit code they received.')
+      setMessage('OTP sent to employee. Enter the code they received by SMS.')
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Failed to send OTP')
     } finally {
@@ -144,8 +169,8 @@ export default function PartnerDashboard() {
   }
 
   const handleConfirmOtp = async () => {
-    if (otp.replace(/\D/g, '').length !== 4) {
-      setMessage('Enter the 4-digit OTP from the employee.')
+    if (!isValidOtp(otp)) {
+      setMessage(`Enter the ${OTP_LENGTH}-digit code from the employee.`)
       return
     }
     setAdding(true)
@@ -153,7 +178,7 @@ export default function PartnerDashboard() {
     try {
       await api.confirmPartnerCandidate(partnerUser.id, {
         employee_number: pendingPhone || cleanedNumber,
-        otp: otp.replace(/\D/g, '').slice(0, 4),
+        otp: digitsOnlyOtp(otp),
       })
       resetForm()
       setMessage('Employee verified and added to your network.')
@@ -165,6 +190,8 @@ export default function PartnerDashboard() {
     }
   }
 
+  const pageTitle = active === 'candidates' ? 'Candidates' : 'Dashboard'
+
   return (
     <PortalLayout
       title="Partner Portal"
@@ -175,7 +202,7 @@ export default function PartnerDashboard() {
       onNavSelect={setActive}
       onLogout={clearSession}
     >
-      <h1 className="dash-title">Dashboard</h1>
+      <h1 className="dash-title">{pageTitle}</h1>
 
       <div className="dash-stats">
         <StatCard icon={Users} value={String(stats?.people_added ?? '—')} label="People Added" />
@@ -199,198 +226,194 @@ export default function PartnerDashboard() {
         />
       </div>
 
-      <div className="dash-grid">
-        <section className="dash-card dash-card--wide">
-          <div className="dash-card__header">
-            <h2>Recently Added People</h2>
-          </div>
-          <div className="dash-table dash-table--partner">
-            <div className="dash-table__head">
-              <span>Name</span>
-              <span>Employee No.</span>
-              <span>Skill</span>
-              <span>Collar</span>
-              <span>Experience</span>
-              <span>Location</span>
-              <span>Status</span>
-            </div>
-            {candidates.length === 0 ? (
-              <p className="dash-empty">No candidates yet. Add your first one →</p>
-            ) : (
-              candidates.slice(0, 10).map((c) => (
-                <div key={c.id} className="dash-table__row">
-                  <span className="dash-table__strong">{c.name}</span>
-                  <span>{c.employee_number || '—'}</span>
-                  <span>{c.skill}</span>
-                  <span>{c.collar_type || '—'}</span>
-                  <span>{c.experience}</span>
-                  <span>{c.city}</span>
-                  <span className={`dash-pill dash-pill--${STATUS_CLASS[c.status] || 'looking'}`}>
-                    {c.status}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        <section className="dash-card">
-          <h2>{addStep === 'details' ? 'Add New Person' : 'Verify Employee OTP'}</h2>
-
-          {addStep === 'details' ? (
-            <>
-              <label className="dash-label">Name</label>
-              <input
-                className="dash-input"
-                placeholder="Full name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-
-              <label className="dash-label">Employee Number (Phone)</label>
-              <input
-                className="dash-input"
-                type="tel"
-                inputMode="numeric"
-                placeholder="9876543210"
-                value={employeeNumber}
-                onChange={(e) => setEmployeeNumber(e.target.value)}
-              />
-
-              <label className="dash-label">Gender</label>
-              <div className="dash-chips">
-                {GENDERS.map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    className={`dash-chip${gender === g ? ' dash-chip--active' : ''}`}
-                    onClick={() => setGender(g)}
-                  >
-                    {g}
-                  </button>
-                ))}
-              </div>
-
-              <label className="dash-label">Age</label>
-              <input
-                className="dash-input dash-input--narrow"
-                type="number"
-                min={18}
-                max={70}
-                placeholder="25"
-                value={age}
-                onChange={(e) => setAge(e.target.value.replace(/\D/g, '').slice(0, 2))}
-              />
-
-              <label className="dash-label">Collar type</label>
-              <div className="dash-chips">
-                {COLLAR_TYPES.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    className={`dash-chip${collarType === c ? ' dash-chip--active' : ''}`}
-                    onClick={() => setCollarType(c)}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-
-              <label className="dash-label">Skill</label>
-              <div className="dash-chips">
-                {SKILLS.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    className={`dash-chip${skill === s ? ' dash-chip--active' : ''}`}
-                    onClick={() => setSkill(s)}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-
-              <label className="dash-label">Experience</label>
-              <div className="dash-chips">
-                {EXP.map((e) => (
-                  <button
-                    key={e}
-                    type="button"
-                    className={`dash-chip${exp === e ? ' dash-chip--active' : ''}`}
-                    onClick={() => setExp(e)}
-                  >
-                    {e}
-                  </button>
-                ))}
-              </div>
-
-              <label className="dash-label">Location</label>
-              <input className="dash-input" value={city} onChange={(e) => setCity(e.target.value)} />
-
-              {message && !message.includes('verified') && (
-                <p className="dash-message">{message}</p>
-              )}
-
+      {active === 'dashboard' && (
+        <>
+          <section className="dash-card dash-card--wide dash-section">
+            <div className="dash-card__header">
+              <h2>Recently added</h2>
               <button
                 type="button"
-                className="dash-submit"
-                disabled={!detailsValid || adding}
-                onClick={handleRequestOtp}
+                className="dash-link-btn"
+                onClick={() => setActive('candidates')}
               >
-                {adding ? 'Sending OTP…' : 'Send OTP to Employee'}
+                View all & add →
               </button>
-            </>
-          ) : (
-            <>
-              <p className="dash-muted">
-                OTP sent to <strong>{pendingPhone}</strong>. Ask the employee for their code and
-                enter it below.
-              </p>
+            </div>
+            <CandidatesTable candidates={candidates.slice(0, 8)} />
+          </section>
+        </>
+      )}
 
-              <label className="dash-label">4-digit OTP</label>
-              <input
-                className="dash-input dash-input--narrow"
-                type="text"
-                inputMode="numeric"
-                maxLength={4}
-                placeholder="1234"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              />
+      {active === 'candidates' && (
+        <div className="dash-grid">
+          <section className="dash-card dash-card--wide">
+            <div className="dash-card__header">
+              <h2>All candidates</h2>
+              <span className="dash-muted">{candidates.length} people in your network</span>
+            </div>
+            <CandidatesTable candidates={candidates} />
+          </section>
 
-              {message && (
-                <p
-                  className={`dash-message${message.includes('verified') || message.includes('added') ? ' dash-message--ok' : ''}`}
-                >
-                  {message}
-                </p>
-              )}
+          <section className="dash-card dash-card--sticky">
+            <h2 className="dash-card__title-row">
+              <UserPlus size={18} aria-hidden />
+              {addStep === 'details' ? 'Add new person' : 'Verify employee OTP'}
+            </h2>
 
-              <div className="dash-form-actions">
-                <button
-                  type="button"
-                  className="dash-submit dash-submit--secondary"
-                  onClick={() => {
-                    setAddStep('details')
-                    setOtp('')
-                    setMessage('')
-                  }}
-                >
-                  Back
-                </button>
+            {addStep === 'details' ? (
+              <>
+                <label className="dash-label">Name</label>
+                <input
+                  className="dash-input"
+                  placeholder="Full name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+
+                <label className="dash-label">Employee number (phone)</label>
+                <input
+                  className="dash-input"
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="9876543210"
+                  value={employeeNumber}
+                  onChange={(e) => setEmployeeNumber(e.target.value)}
+                />
+
+                <label className="dash-label">Gender</label>
+                <div className="dash-chips">
+                  {GENDERS.map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      className={`dash-chip${gender === g ? ' dash-chip--active' : ''}`}
+                      onClick={() => setGender(g)}
+                    >
+                      {g}
+                    </button>
+                  ))}
+                </div>
+
+                <label className="dash-label">Age</label>
+                <input
+                  className="dash-input dash-input--narrow"
+                  type="number"
+                  min={18}
+                  max={70}
+                  placeholder="25"
+                  value={age}
+                  onChange={(e) => setAge(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                />
+
+                <label className="dash-label">Collar type</label>
+                <div className="dash-chips">
+                  {COLLAR_TYPES.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      className={`dash-chip${collarType === c ? ' dash-chip--active' : ''}`}
+                      onClick={() => setCollarType(c)}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+
+                <label className="dash-label">Skill</label>
+                <div className="dash-chips">
+                  {SKILLS.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`dash-chip${skill === s ? ' dash-chip--active' : ''}`}
+                      onClick={() => setSkill(s)}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+
+                <label className="dash-label">Experience</label>
+                <div className="dash-chips">
+                  {EXP.map((e) => (
+                    <button
+                      key={e}
+                      type="button"
+                      className={`dash-chip${exp === e ? ' dash-chip--active' : ''}`}
+                      onClick={() => setExp(e)}
+                    >
+                      {e}
+                    </button>
+                  ))}
+                </div>
+
+                <label className="dash-label">Location</label>
+                <input className="dash-input" value={city} onChange={(e) => setCity(e.target.value)} />
+
+                {message && !message.includes('verified') && (
+                  <p className="dash-message">{message}</p>
+                )}
+
                 <button
                   type="button"
                   className="dash-submit"
-                  disabled={otp.length !== 4 || adding}
-                  onClick={handleConfirmOtp}
+                  disabled={!detailsValid || adding}
+                  onClick={handleRequestOtp}
                 >
-                  {adding ? 'Verifying…' : 'Verify & Add'}
+                  {adding ? 'Sending OTP…' : 'Send OTP to employee'}
                 </button>
-              </div>
-            </>
-          )}
-        </section>
-      </div>
+              </>
+            ) : (
+              <>
+                <p className="dash-muted">
+                  OTP sent to <strong>{pendingPhone}</strong>. Ask the employee for their code.
+                </p>
+
+                <label className="dash-label">{OTP_LENGTH}-digit OTP</label>
+                <input
+                  className="dash-input dash-input--narrow"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={OTP_LENGTH}
+                  placeholder="1234"
+                  value={otp}
+                  onChange={(e) => setOtp(digitsOnlyOtp(e.target.value))}
+                />
+
+                {message && (
+                  <p
+                    className={`dash-message${message.includes('verified') || message.includes('added') ? ' dash-message--ok' : ''}`}
+                  >
+                    {message}
+                  </p>
+                )}
+
+                <div className="dash-form-actions">
+                  <button
+                    type="button"
+                    className="dash-submit dash-submit--secondary"
+                    onClick={() => {
+                      setAddStep('details')
+                      setOtp('')
+                      setMessage('')
+                    }}
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    className="dash-submit"
+                    disabled={!isValidOtp(otp) || adding}
+                    onClick={handleConfirmOtp}
+                  >
+                    {adding ? 'Verifying…' : 'Verify & add'}
+                  </button>
+                </div>
+              </>
+            )}
+          </section>
+        </div>
+      )}
     </PortalLayout>
   )
 }

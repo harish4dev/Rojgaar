@@ -245,8 +245,19 @@ export default function ProfileScreen() {
                 value={lang.label}
                 onPress={() => setShowLang(true)}
               />
-              <MenuRow testID="menu-help" icon="help-circle-outline" label={t("help_center")} />
-              <MenuRow testID="menu-settings" icon="settings-outline" label={t("settings")} last />
+              <MenuRow
+                testID="menu-help"
+                icon="help-circle-outline"
+                label={t("help_center")}
+                onPress={() => router.push("/help" as any)}
+              />
+              <MenuRow
+                testID="menu-settings"
+                icon="settings-outline"
+                label={t("settings")}
+                onPress={() => router.push("/settings" as any)}
+                last
+              />
             </View>
 
             <TouchableOpacity

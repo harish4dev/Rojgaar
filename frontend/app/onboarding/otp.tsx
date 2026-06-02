@@ -16,11 +16,12 @@ import ScreenHeader from "@/src/components/ScreenHeader";
 import { api } from "@/src/api/client";
 import { session } from "@/src/store/session";
 import { t } from "@/src/i18n/translations";
+import { OTP_LENGTH } from "@/src/constants/otp";
 
 export default function OtpScreen() {
   const router = useRouter();
   const { phone } = useLocalSearchParams<{ phone: string }>();
-  const [digits, setDigits] = useState(["", "", "", ""]);
+  const [digits, setDigits] = useState<string[]>(() => Array(OTP_LENGTH).fill(""));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [timer, setTimer] = useState(25);
@@ -33,14 +34,14 @@ export default function OtpScreen() {
   }, [timer]);
 
   const code = digits.join("");
-  const valid = code.length === 4;
+  const valid = code.length === OTP_LENGTH;
 
   const handleChange = (i: number, v: string) => {
     const c = v.replace(/[^0-9]/g, "").slice(-1);
     const next = [...digits];
     next[i] = c;
     setDigits(next);
-    if (c && i < 3) inputs.current[i + 1]?.focus();
+    if (c && i < OTP_LENGTH - 1) inputs.current[i + 1]?.focus();
   };
 
   const handleKey = (i: number, key: string) => {
@@ -72,7 +73,7 @@ export default function OtpScreen() {
         }
       }
     } catch (e: any) {
-      setError("Invalid OTP. Try any 4 digit code.");
+      setError(e?.message?.includes("API") ? "Invalid or expired code. Try again." : (e?.message || "Invalid OTP"));
     } finally {
       setLoading(false);
     }
@@ -138,7 +139,6 @@ export default function OtpScreen() {
             style={{ marginTop: 32 }}
           />
 
-          <Text style={styles.hint}>Mock OTP: any 4 digits will work.</Text>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

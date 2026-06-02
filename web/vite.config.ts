@@ -7,9 +7,13 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@rojgaar-assets': path.resolve(__dirname, '../assests'),
     },
   },
   server: {
+    fs: {
+      allow: ['..'],
+    },
     port: 5173,
     proxy: {
       '/api': {

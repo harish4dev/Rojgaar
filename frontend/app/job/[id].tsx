@@ -18,6 +18,9 @@ import { session } from "@/src/store/session";
 import { t } from "@/src/i18n/translations";
 import { getJobField, getJobRequirements } from "@/src/utils/jobTranslation";
 import { callAfterApply } from "@/src/utils/jobActions";
+import { viewedJobs } from "@/src/store/viewedJobs";
+import { getApiErrorMessage } from "@/src/utils/apiError";
+import ErrorBanner from "@/src/components/ErrorBanner";
 import ScreenContainer from "@/src/components/ScreenContainer";
 import { useResponsive } from "@/src/hooks/useResponsive";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,17 +34,30 @@ export default function JobDetail() {
   const [job, setJob] = useState<any>(null);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     try {
+      setError(null);
       const [j, savedList] = await Promise.all([
         api.getJob(id),
         session.getWorkerId().then((wid) => (wid ? api.listSavedJobs(wid) : [])),
       ]);
       setJob(j);
       setSaved(savedList.some((s: any) => s.id === id));
+      await viewedJobs.add({
+        id: j.id,
+        title: j.title,
+        company: j.company,
+        city: j.city,
+        salary_min: j.salary_min,
+        salary_max: j.salary_max,
+        image_url: j.image_url,
+      });
+    } catch (e) {
+      setError(getApiErrorMessage(e, "Could not load this job."));
     } finally {
       setLoading(false);
     }
@@ -65,15 +81,28 @@ export default function JobDetail() {
 
   const handleCall = async () => {
     if (!job) return;
-    await callAfterApply(job.id);
+    await callAfterApply(job.id, job.contact_phone);
   };
 
-  if (loading || !job) {
+  if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loaderWrap}>
           <ActivityIndicator color={COLORS.primary} size="large" />
           <Text style={styles.loaderText}>Loading job details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !job) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={[styles.loaderWrap, { padding: 24 }]}>
+          {error ? <ErrorBanner message={error} onRetry={load} /> : null}
+          <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16 }}>
+            <Text style={{ color: COLORS.primary, fontWeight: "700" }}>Go back</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );

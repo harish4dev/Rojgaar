@@ -5,6 +5,7 @@ from fastapi import HTTPException
 
 from database import db
 from schemas import CandidateCreate, PartnerCandidate, Worker, now_iso
+from services.twilio_verify import check_verification, send_verification
 
 PENDING_TTL_MINUTES = 15
 GENDERS = {"Male", "Female", "Other"}
@@ -62,19 +63,30 @@ async def get_doc_or_raise_partner(partner_id: str) -> dict:
     return await get_doc_or_404("partners", partner_id, "Partner not found")
 
 
+async def send_employee_verification(partner_id: str, payload: CandidateCreate) -> dict[str, Any]:
+    """Validate, store pending registration, and send OTP to employee phone."""
+    await save_pending_registration(partner_id, payload)
+    phone = payload.employee_number.strip()
+    send_result = await send_verification(phone)
+    return {
+        "success": True,
+        "message": send_result.get("message", "Verification code sent to employee."),
+        "phone": phone,
+        "dev_mode": send_result.get("dev_mode", False),
+    }
+
+
 async def confirm_pending_registration(
     partner_id: str,
     employee_number: str,
     otp: str,
 ) -> dict[str, Any]:
-    if not (otp.isdigit() and len(otp) == 4):
-        raise HTTPException(status_code=400, detail="OTP must be 4 digits")
-
     phone = employee_number.strip()
     if not (phone.isdigit() and len(phone) == 10):
         raise HTTPException(status_code=400, detail="employee_number must be a 10-digit phone")
 
     await get_doc_or_raise_partner(partner_id)
+    await check_verification(phone, otp)
 
     pending = await db.partner_candidate_pending.find_one(
         _pending_key(partner_id, phone),

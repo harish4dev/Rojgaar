@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -17,10 +17,13 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { COLORS, RADIUS } from "@/src/constants/theme";
 import { api } from "@/src/api/client";
 import { session } from "@/src/store/session";
+import { jobFilters, type JobFilterParams } from "@/src/store/jobFilters";
 import JobCard from "@/src/components/JobCard";
 import ScreenContainer from "@/src/components/ScreenContainer";
 import EmptyState from "@/src/components/EmptyState";
 import { t } from "@/src/i18n/translations";
+import ErrorBanner from "@/src/components/ErrorBanner";
+import { getApiErrorMessage } from "@/src/utils/apiError";
 import { useResponsive } from "@/src/hooks/useResponsive";
 import { useTabBarInsets } from "@/src/hooks/useTabBarInsets";
 
@@ -29,6 +32,7 @@ interface Worker {
   name?: string;
   city?: string;
   skills?: string[];
+  industries?: string[];
   profile_strength?: number;
 }
 
@@ -37,12 +41,71 @@ interface Job {
   title: string;
   company: string;
   city: string;
+  industry?: string;
   distance_km: number;
   salary_min: number;
   salary_max: number;
   experience: string;
   job_type: string;
   image_url?: string | null;
+}
+
+const RECOMMENDED_LIMIT = 5;
+
+function lc(s: string) {
+  return s.trim().toLowerCase();
+}
+
+function scoreJob(job: Job, worker: Worker | null): number {
+  if (!worker) return 0;
+  let score = 0;
+  if (worker.city && lc(job.city) === lc(worker.city)) score += 3;
+  const hay = [job.title, job.industry, job.company].filter(Boolean).map((x) => lc(x!)).join(" ");
+  for (const skill of worker.skills ?? []) {
+    if (skill && hay.includes(lc(skill))) score += 2;
+  }
+  for (const ind of worker.industries ?? []) {
+    const indLc = lc(ind);
+    if (job.industry && lc(job.industry) === indLc) score += 2;
+    else if (ind && hay.includes(indLc)) score += 1;
+  }
+  return score;
+}
+
+function pickRecommended(jobs: Job[], worker: Worker | null): Job[] {
+  if (!jobs.length) return [];
+  const scored = jobs
+    .map((job) => ({ job, score: scoreJob(job, worker) }))
+    .sort((a, b) => b.score - a.score);
+  const withSignal = scored.filter((s) => s.score > 0);
+  const pool = withSignal.length > 0 ? withSignal : scored;
+  return pool.slice(0, RECOMMENDED_LIMIT).map((s) => s.job);
+}
+
+function filterJobsByChip(jobs: Job[], chip: string, worker: Worker | null): Job[] {
+  switch (chip) {
+    case "daily":
+      return jobs.filter((j) => j.job_type === "Daily Wage");
+    case "full":
+      return jobs.filter((j) => j.job_type === "Full Time");
+    case "construction":
+      return jobs.filter((j) => j.industry === "construction");
+    case "nearby":
+      if (!worker?.city) return jobs;
+      return jobs.filter((j) => lc(j.city) === lc(worker.city));
+    default:
+      return jobs;
+  }
+}
+
+function filterJobsBySearch(jobs: Job[], query: string): Job[] {
+  const q = query.trim();
+  if (!q) return jobs;
+  const needle = lc(q);
+  return jobs.filter((j) => {
+    const hay = [j.title, j.company, j.industry, j.city].filter(Boolean).map((x) => lc(x!)).join(" ");
+    return hay.includes(needle);
+  });
 }
 
 const FILTERS = [
@@ -67,39 +130,41 @@ export default function Home() {
   const { horizontalPadding } = useResponsive();
   const { scrollBottomPadding } = useTabBarInsets();
   const [worker, setWorker] = useState<Worker | null>(null);
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [allJobs, setAllJobs] = useState<Job[]>([]);
+  const [appliedFilters, setAppliedFilters] = useState<JobFilterParams | null>(null);
   const [activeChip, setActiveChip] = useState("nearby");
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const loadAll = useCallback(
-    async (chip = activeChip, q = search) => {
-      const wid = await session.getWorkerId();
-      if (!wid) {
-        router.replace("/onboarding/language");
-        return;
-      }
-      try {
-        const w = await api.getWorker(wid);
-        setWorker(w);
-        const params: Record<string, string> = {};
-        if (chip === "daily") params.job_type = "Daily Wage";
-        if (chip === "full") params.job_type = "Full Time";
-        if (chip === "construction") params.industry = "construction";
-        if (chip === "nearby" && w.city) params.city = w.city;
-        if (q) params.search = q;
-        const data = await api.listJobs(params);
-        setJobs(data);
-      } catch (e) {
-        console.warn("Failed to load home", e);
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [activeChip, search, router]
-  );
+  const loadAll = useCallback(async () => {
+    const wid = await session.getWorkerId();
+    if (!wid) {
+      router.replace("/onboarding/language");
+      return;
+    }
+    try {
+      setError(null);
+      const w = await api.getWorker(wid);
+      setWorker(w);
+      const saved = await jobFilters.get();
+      setAppliedFilters(saved);
+      const params: Record<string, string | number> = { limit: 100 };
+      if (saved?.job_type) params.job_type = saved.job_type;
+      if (saved?.industry) params.industry = saved.industry;
+      if (saved?.experience) params.experience = saved.experience;
+      if (saved?.salary_min != null) params.salary_min = saved.salary_min;
+      if (saved?.salary_max != null) params.salary_max = saved.salary_max;
+      const data: Job[] = await api.listJobs(params);
+      setAllJobs(data);
+    } catch (e) {
+      setError(getApiErrorMessage(e, "Could not load jobs."));
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [router]);
 
   useFocusEffect(
     useCallback(() => {
@@ -107,20 +172,27 @@ export default function Home() {
     }, [loadAll])
   );
 
-  useEffect(() => {
-    const id = setTimeout(() => loadAll(activeChip, search), 300);
-    return () => clearTimeout(id);
-  }, [activeChip, search, loadAll]);
-
   const onRefresh = () => {
     setRefreshing(true);
     loadAll();
   };
 
-  const activeFilterLabel = useMemo(
+  const activeChipLabel = useMemo(
     () => FILTERS.find((f) => f.key === activeChip)?.label() ?? t("nearby"),
     [activeChip]
   );
+
+  const allJobsList = useMemo(
+    () => filterJobsBySearch(allJobs, search),
+    [allJobs, search]
+  );
+
+  const recommendedJobs = useMemo(() => {
+    const pool = filterJobsByChip(allJobs, activeChip, worker);
+    return pickRecommended(pool, worker);
+  }, [allJobs, activeChip, worker]);
+
+  const filtersActive = Boolean(appliedFilters && Object.keys(appliedFilters).length > 0);
 
   const showProfileNudge = (worker?.profile_strength ?? 100) < 80;
 
@@ -233,15 +305,12 @@ export default function Home() {
               onPress={() => router.push("/filter")}
               testID="quick-filter"
             />
-            <QuickAction
-              icon="briefcase-outline"
-              label={t("browse_jobs")}
-              onPress={() => router.push("/(tabs)/jobs")}
-              testID="quick-browse"
-            />
           </View>
 
           <View style={[styles.body, { paddingHorizontal: horizontalPadding }]}>
+            {error ? (
+              <ErrorBanner message={error} onRetry={() => loadAll()} onDismiss={() => setError(null)} />
+            ) : null}
             {showProfileNudge ? (
               <TouchableOpacity
                 testID="profile-nudge"
@@ -269,20 +338,21 @@ export default function Home() {
 
             <View style={styles.sectionHeader}>
               <View style={styles.sectionLeft}>
-                <Text style={styles.sectionTitle}>{t("recommended_jobs")}</Text>
-                {!loading && jobs.length > 0 ? (
+                <Text style={styles.sectionTitle}>{t("jobs")}</Text>
+                {!loading && allJobsList.length > 0 ? (
                   <View style={styles.countBadge}>
-                    <Text style={styles.countText}>{jobs.length}</Text>
+                    <Text style={styles.countText}>{allJobsList.length}</Text>
                   </View>
                 ) : null}
               </View>
-              <TouchableOpacity onPress={() => router.push("/(tabs)/jobs")} testID="view-all-jobs">
-                <Text style={styles.viewAll}>{t("view_all")}</Text>
-              </TouchableOpacity>
             </View>
 
             <Text style={styles.sectionSub}>
-              {loading ? "Searching..." : `${jobs.length} jobs · ${activeFilterLabel}`}
+              {loading
+                ? "Loading..."
+                : filtersActive
+                  ? `${allJobsList.length} jobs · ${t("filters_applied")}`
+                  : `${allJobsList.length} jobs`}
             </Text>
 
             {loading ? (
@@ -290,14 +360,34 @@ export default function Home() {
                 <ActivityIndicator color={COLORS.primary} size="large" />
                 <Text style={styles.loaderText}>Finding jobs for you...</Text>
               </View>
-            ) : jobs.length === 0 ? (
+            ) : allJobsList.length === 0 ? (
               <EmptyState
                 icon="search-outline"
                 title="No jobs found"
-                subtitle="Try a different filter, search term, or browse all jobs."
+                subtitle={
+                  filtersActive || search.trim()
+                    ? "Try clearing filters or your search."
+                    : "Check back soon for new openings."
+                }
               />
             ) : (
-              jobs.map((j) => <JobCard key={j.id} job={j} />)
+              <>
+                {recommendedJobs.length > 0 ? (
+                  <View style={styles.subsection}>
+                    <Text style={styles.subsectionTitle}>{t("recommended_for_you")}</Text>
+                    <Text style={styles.subsectionSub}>{activeChipLabel}</Text>
+                    {recommendedJobs.map((j) => (
+                      <JobCard key={`rec-${j.id}`} job={j} />
+                    ))}
+                  </View>
+                ) : null}
+                <View style={styles.subsection}>
+                  <Text style={styles.subsectionTitle}>{t("all_jobs")}</Text>
+                  {allJobsList.map((j) => (
+                    <JobCard key={j.id} job={j} />
+                  ))}
+                </View>
+              </>
             )}
           </View>
         </ScrollView>
@@ -505,6 +595,18 @@ const styles = StyleSheet.create({
   },
   countText: { fontSize: 12, fontWeight: "700", color: COLORS.primary },
   sectionSub: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4, marginBottom: 14 },
+  subsection: { marginBottom: 8 },
+  subsectionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  subsectionSub: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginBottom: 12,
+  },
   viewAll: { color: COLORS.primary, fontSize: 14, fontWeight: "600" },
   loaderWrap: { alignItems: "center", paddingVertical: 40, gap: 12 },
   loaderText: { color: COLORS.textSecondary, fontSize: 14 },

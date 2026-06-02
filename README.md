@@ -40,7 +40,7 @@ flowchart LR
 
 ### Worker app (`frontend/`)
 
-- Phone + OTP sign-in (mock: any 4-digit code)
+- Phone + OTP sign-in (Twilio Verify SMS)
 - Onboarding: language → phone → OTP → personal info (name, gender, age) → city → industry → skills → experience & salary → work type → ready
 - Languages: English, Hindi, Kannada (Tamil/Telugu/Marathi shown as coming soon)
 - Bottom tabs: **Home**, **Jobs**, **Activity**, **Profile**
@@ -60,7 +60,7 @@ flowchart LR
 
 - REST API with Pydantic schemas and MongoDB persistence
 - Auto-seeds jobs, demo business, demo partner, and sample candidates on startup
-- Mock OTP (no SMS provider; any 4-digit code is accepted)
+- Twilio Verify OTP (SMS); dev mode when Twilio is not configured
 
 ---
 
@@ -150,7 +150,7 @@ Use a reachable URL when testing on a physical device (e.g. your machine’s LAN
 
 ## Authentication flows
 
-OTP is **mocked** everywhere: send OTP always succeeds; verify accepts any **4-digit** numeric code.
+OTP uses **Twilio Verify** (SMS) with **4-digit** codes everywhere. Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_VERIFY_SERVICE_SID` in `backend/.env`, and set your Verify service **code length to 4** in the Twilio Console. For local dev without Twilio, leave those unset or set `OTP_DEV_MODE=true` (any 4-digit code is accepted).
 
 ### Business & Partner (web)
 
@@ -183,7 +183,7 @@ Session is stored in `localStorage` (`rojgaar.web.session`).
 | Partner | `8888888888` | Ramesh Kumar — 4 seeded candidates |
 | Worker | any new 10-digit | Created on first OTP verify |
 
-OTP: any 4 digits (e.g. `1234`, `0000`).
+OTP: real SMS via Twilio in production (4 digits); dev mode accepts any 4-digit code when Twilio is not configured.
 
 ---
 
@@ -315,6 +315,10 @@ Key suites:
 | `DB_NAME` | `backend/.env` | Database name |
 | `VITE_BACKEND_URL` | `web/.env` | API origin for web client (optional; Vite proxy used in dev) |
 | `EXPO_PUBLIC_BACKEND_URL` | `frontend/.env` | API origin for mobile app |
+| `TWILIO_ACCOUNT_SID` | `backend/.env` | Twilio account SID |
+| `TWILIO_AUTH_TOKEN` | `backend/.env` | Twilio auth token |
+| `TWILIO_VERIFY_SERVICE_SID` | `backend/.env` | Twilio Verify service SID (`VA…`) |
+| `OTP_DEV_MODE` | `backend/.env` | `true` to skip SMS (local dev only) |
 
 ---
 
@@ -353,6 +357,8 @@ On first startup the backend seeds:
 
 ---
 
-## License
+## Related docs
 
-Private project — see repository owner for usage terms.
+- [MVP_ROADMAP.md](./MVP_ROADMAP.md) — production audit and phased plan to MVP launch
+- [web/README.md](./web/README.md) — web portal routes and demo logins
+- [memory/PRD.md](./memory/PRD.md) — original product notes

@@ -22,7 +22,7 @@ def test_health(s):
     assert r.json()["status"] == "ok"
 
 
-# ---------- Auth (mocked OTP) ----------
+# ---------- Auth (Twilio Verify or dev OTP when API has OTP_DEV_MODE / no Twilio) ----------
 class TestAuth:
     def test_send_otp_worker(self, s):
         r = s.post(f"{API}/auth/send-otp", json={"phone": "7777777777", "role": "worker"})
@@ -83,8 +83,8 @@ class TestAuth:
         r3 = s.post(f"{API}/auth/verify-otp", json={"phone": phone, "otp": "1234", "role": "business"})
         assert r3.json()["needs_profile"] is False
 
-    @pytest.mark.parametrize("bad_otp", ["123", "12345", "abcd", ""])
-    def test_verify_otp_rejects_non_4_digit(self, s, bad_otp):
+    @pytest.mark.parametrize("bad_otp", ["12", "12345", "123456", "abcd", ""])
+    def test_verify_otp_rejects_invalid_code(self, s, bad_otp):
         r = s.post(f"{API}/auth/verify-otp", json={"phone": "7777777777", "otp": bad_otp, "role": "worker"})
         assert r.status_code == 400
 

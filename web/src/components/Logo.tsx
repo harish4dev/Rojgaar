@@ -1,28 +1,35 @@
-import { Cpu } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import rojgaarLogo from '@/assets/brand'
 import './Logo.css'
 
 interface LogoProps {
   variant?: 'light' | 'dark'
   linkTo?: string
-  size?: 'sm' | 'md'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
+  /** Set true only if you want extra text beside the image (logo PNG already includes ROJGAAR). */
+  showWordmark?: boolean
 }
 
-export default function Logo({ variant = 'dark', linkTo = '/', size = 'md' }: LogoProps) {
+export default function Logo({
+  variant = 'light',
+  linkTo = '/',
+  size = 'md',
+  showWordmark = false,
+}: LogoProps) {
   const content = (
     <span className={`logo logo--${variant} logo--${size}`}>
-      <span className="logo__icon">
-        <Cpu size={size === 'sm' ? 16 : 20} strokeWidth={2.2} />
-      </span>
-      <span className="logo__text">
-        R<span className="logo__accent">O</span>JGAAR
-      </span>
+      <img src={rojgaarLogo} alt="Rojgaar" className="logo__img" />
+      {showWordmark && (
+        <span className="logo__text">
+          R<span className="logo__accent">O</span>JGAAR
+        </span>
+      )}
     </span>
   )
 
   if (linkTo) {
     return (
-      <Link to={linkTo} className="logo__link">
+      <Link to={linkTo} className="logo__link" aria-label="Rojgaar home">
         {content}
       </Link>
     )

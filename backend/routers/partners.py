@@ -5,7 +5,7 @@ from schemas import CandidateCreate, CandidateOtpConfirm, PartnerProfileUpdate
 from services.db_helpers import get_doc_or_404
 from services.partner_candidates import (
     confirm_pending_registration,
-    save_pending_registration,
+    send_employee_verification,
     validate_candidate_payload,
 )
 
@@ -52,14 +52,9 @@ async def partner_candidates(partner_id: str):
 
 @router.post("/{partner_id}/candidates/request-otp")
 async def request_partner_candidate_otp(partner_id: str, payload: CandidateCreate):
-    """Partner submits employee details; OTP is sent to the employee phone (mock)."""
+    """Partner submits employee details; OTP is sent to the employee via Twilio Verify."""
     validate_candidate_payload(payload)
-    await save_pending_registration(partner_id, payload)
-    return {
-        "success": True,
-        "message": "OTP sent to employee (mock). Any 4-digit code works.",
-        "phone": payload.employee_number,
-    }
+    return await send_employee_verification(partner_id, payload)
 
 
 @router.post("/{partner_id}/candidates/confirm")

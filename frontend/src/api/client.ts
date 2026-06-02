@@ -1,6 +1,15 @@
-const BASE = process.env.EXPO_PUBLIC_BACKEND_URL;
+const BASE = (process.env.EXPO_PUBLIC_BACKEND_URL ?? "").replace(/\/$/, "");
+
+export function getApiBaseUrl(): string {
+  return BASE;
+}
 
 async function req(path: string, options: RequestInit = {}) {
+  if (!BASE) {
+    throw new Error(
+      "EXPO_PUBLIC_BACKEND_URL is not set. Add it to frontend/.env before building."
+    );
+  }
   const url = `${BASE}/api${path}`;
   const res = await fetch(url, {
     ...options,

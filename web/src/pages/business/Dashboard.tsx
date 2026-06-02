@@ -5,11 +5,7 @@ import {
   Briefcase,
   ChevronDown,
   ChevronRight,
-  Eye,
   FileText,
-  MessageSquare,
-  Settings,
-  TrendingUp,
   Users,
 } from 'lucide-react'
 import PortalLayout, { StatCard } from '@/components/PortalLayout'
@@ -19,12 +15,7 @@ import '../Dashboard.css'
 
 const NAV = [
   { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-  { key: 'jobs', label: 'Jobs', icon: Briefcase },
   { key: 'applications', label: 'Applications', icon: FileText },
-  { key: 'workers', label: 'Workers', icon: Users },
-  { key: 'analytics', label: 'Analytics', icon: TrendingUp },
-  { key: 'messages', label: 'Messages', icon: MessageSquare },
-  { key: 'settings', label: 'Settings', icon: Settings },
 ]
 
 const INDUSTRIES = [
@@ -64,7 +55,6 @@ export default function BusinessDashboard() {
     active_jobs: number
     applications: number
     hired: number
-    profile_views: number
   } | null>(null)
   const [jobs, setJobs] = useState<Job[]>([])
   const [applications, setApplications] = useState<JobApplication[]>([])
@@ -156,11 +146,7 @@ export default function BusinessDashboard() {
     }
   }
 
-  const showJobsSection = active === 'dashboard' || active === 'jobs' || active === 'applications'
-  const showPostForm = active === 'dashboard' || active === 'jobs'
-
-  const pageTitle =
-    active === 'applications' ? 'Applications' : active === 'jobs' ? 'Jobs' : 'Dashboard'
+  const pageTitle = active === 'applications' ? 'Applications' : 'Dashboard'
 
   return (
     <PortalLayout
@@ -183,16 +169,100 @@ export default function BusinessDashboard() {
           color="#10B981"
         />
         <StatCard icon={Users} value={String(stats?.hired ?? '—')} label="Hired" color="#3B82F6" />
-        <StatCard
-          icon={Eye}
-          value={String(stats?.profile_views ?? '—')}
-          label="Profile Views"
-          color="#A855F7"
-        />
       </div>
 
-      {showJobsSection && (
-        <div className={`dash-layout${showPostForm ? '' : ' dash-layout--full'}`}>
+      {message && active === 'applications' && (
+        <p className={`dash-message dash-message--banner${message.includes('success') ? ' dash-message--ok' : ''}`}>
+          {message}
+        </p>
+      )}
+
+      {active === 'dashboard' && (
+        <div className="dash-layout dash-layout--single">
+          <section className="dash-card dash-card--wide">
+            <div className="dash-card__header">
+              <h2>Post a new job</h2>
+              {jobs.length > 0 && (
+                <button
+                  type="button"
+                  className="dash-link-btn"
+                  onClick={() => setActive('applications')}
+                >
+                  View {applications.length} applications →
+                </button>
+              )}
+            </div>
+
+            <label className="dash-label">Job title</label>
+            <input
+              className="dash-input"
+              placeholder="e.g. Mason, Electrician"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+
+            <label className="dash-label">Industry</label>
+            <div className="dash-chips">
+              {INDUSTRIES.map((ind) => (
+                <button
+                  key={ind.key}
+                  type="button"
+                  className={`dash-chip${industry === ind.key ? ' dash-chip--active' : ''}`}
+                  onClick={() => setIndustry(ind.key)}
+                >
+                  {ind.label}
+                </button>
+              ))}
+            </div>
+
+            <label className="dash-label">Location</label>
+            <input className="dash-input" value={city} onChange={(e) => setCity(e.target.value)} />
+
+            <label className="dash-label">Salary range (min – max)</label>
+            <div className="dash-row">
+              <input
+                className="dash-input"
+                type="number"
+                value={salaryMin}
+                onChange={(e) => setSalaryMin(e.target.value)}
+              />
+              <input
+                className="dash-input"
+                type="number"
+                value={salaryMax}
+                onChange={(e) => setSalaryMax(e.target.value)}
+              />
+            </div>
+
+            <label className="dash-label">Description</label>
+            <textarea
+              className="dash-input dash-textarea"
+              placeholder="Tell workers about this role..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+            />
+
+            {message && (
+              <p className={`dash-message${message.includes('success') ? ' dash-message--ok' : ''}`}>
+                {message}
+              </p>
+            )}
+
+            <button
+              type="button"
+              className="dash-submit"
+              disabled={!title.trim() || posting}
+              onClick={handlePost}
+            >
+              {posting ? 'Posting…' : 'Post job'}
+            </button>
+          </section>
+        </div>
+      )}
+
+      {active === 'applications' && (
+        <div className="dash-layout dash-layout--full">
           <section className="dash-jobs-list">
             <div className="dash-card__header">
               <h2>Your Jobs & Applicants</h2>
@@ -306,77 +376,6 @@ export default function BusinessDashboard() {
               })
             )}
           </section>
-
-          {showPostForm && (
-            <section className="dash-card dash-card--sticky">
-              <h2>Post a New Job</h2>
-
-              <label className="dash-label">Job Title</label>
-              <input
-                className="dash-input"
-                placeholder="e.g. Mason, Electrician"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-
-              <label className="dash-label">Industry</label>
-              <div className="dash-chips">
-                {INDUSTRIES.map((ind) => (
-                  <button
-                    key={ind.key}
-                    type="button"
-                    className={`dash-chip${industry === ind.key ? ' dash-chip--active' : ''}`}
-                    onClick={() => setIndustry(ind.key)}
-                  >
-                    {ind.label}
-                  </button>
-                ))}
-              </div>
-
-              <label className="dash-label">Location</label>
-              <input className="dash-input" value={city} onChange={(e) => setCity(e.target.value)} />
-
-              <label className="dash-label">Salary Range (Min – Max)</label>
-              <div className="dash-row">
-                <input
-                  className="dash-input"
-                  type="number"
-                  value={salaryMin}
-                  onChange={(e) => setSalaryMin(e.target.value)}
-                />
-                <input
-                  className="dash-input"
-                  type="number"
-                  value={salaryMax}
-                  onChange={(e) => setSalaryMax(e.target.value)}
-                />
-              </div>
-
-              <label className="dash-label">Description</label>
-              <textarea
-                className="dash-input dash-textarea"
-                placeholder="Tell workers about this role..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-              />
-
-              {message && (
-                <p className={`dash-message${message.includes('success') ? ' dash-message--ok' : ''}`}>
-                  {message}
-                </p>
-              )}
-
-              <button
-                type="button"
-                className="dash-submit"
-                disabled={!title.trim() || posting}
-                onClick={handlePost}
-              >
-                {posting ? 'Posting…' : 'Post Job'}
-              </button>
-            </section>
-          )}
         </div>
       )}
     </PortalLayout>

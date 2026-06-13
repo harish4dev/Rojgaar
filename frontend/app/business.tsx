@@ -9,7 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
+import { Redirect, useFocusEffect } from "expo-router";
 import { COLORS, RADIUS } from "@/src/constants/theme";
 import PortalLayout, { StatCard } from "@/src/components/PortalLayout";
 import { api } from "@/src/api/client";
@@ -26,15 +26,10 @@ const NAV = [
   { key: "settings", label: "Settings", icon: "settings" as const },
 ];
 
-const INDUSTRIES = [
-  { key: "construction", label: "Construction", icon: "construct" as const },
-  { key: "factory", label: "Factory", icon: "business" as const },
-  { key: "delivery", label: "Delivery", icon: "car" as const },
-  { key: "driver", label: "Driver", icon: "car-sport" as const },
-  { key: "other", label: "Other", icon: "ellipsis-horizontal" as const },
-];
-
 export default function BusinessPortal() {
+  if (!__DEV__) {
+    return <Redirect href="/(tabs)/home" />;
+  }
   const [active, setActive] = useState("dashboard");
   const [business, setBusiness] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
@@ -45,11 +40,18 @@ export default function BusinessPortal() {
 
   // Post job form
   const [title, setTitle] = useState("");
-  const [industry, setIndustry] = useState("construction");
+  const [industry, setIndustry] = useState("garments");
+  const [metaIndustries, setMetaIndustries] = useState<{ key: string; label: string; icon?: string }[]>([]);
+  const [jobTitlesByIndustry, setJobTitlesByIndustry] = useState<Record<string, string[]>>({});
   const [city, setCity] = useState("Bengaluru");
   const [salaryMin, setSalaryMin] = useState("10000");
   const [salaryMax, setSalaryMax] = useState("30000");
   const [description, setDescription] = useState("");
+  const [genderPreference, setGenderPreference] = useState("Any");
+  const [ageMin, setAgeMin] = useState("18");
+  const [ageMax, setAgeMax] = useState("60");
+  const [experienceBand, setExperienceBand] = useState("Fresher");
+  const [salaryNegotiable, setSalaryNegotiable] = useState(false);
   const [posting, setPosting] = useState(false);
 
   const load = useCallback(async () => {
@@ -58,6 +60,8 @@ export default function BusinessPortal() {
       const res = await api.verifyOtp(DEMO_PHONE, "0000", "business");
       const biz = res.user;
       setBusiness(biz);
+      if (biz.industry) setIndustry(biz.industry);
+      if (biz.city) setCity(biz.city);
       const [s, j, apps] = await Promise.all([
         api.getBusinessStats(biz.id),
         api.getBusinessJobs(biz.id),
@@ -80,6 +84,17 @@ export default function BusinessPortal() {
     }, [load])
   );
 
+  useEffect(() => {
+    Promise.all([api.getIndustries(), api.getIndustryJobTitles()])
+      .then(([inds, titles]) => {
+        setMetaIndustries(inds);
+        setJobTitlesByIndustry(titles);
+      })
+      .catch(() => {});
+  }, []);
+
+  const jobRoles = jobTitlesByIndustry[industry] ?? [];
+
   const handlePost = async () => {
     if (!business || !title) return;
     try {
@@ -91,6 +106,12 @@ export default function BusinessPortal() {
         city,
         salary_min: parseInt(salaryMin) || 0,
         salary_max: parseInt(salaryMax) || 0,
+        salary_negotiable: salaryNegotiable,
+        gender_preference: genderPreference,
+        age_min: parseInt(ageMin) || undefined,
+        age_max: parseInt(ageMax) || undefined,
+        experience_band: experienceBand,
+        requirements: [title],
         description: description || "Posted via Business Portal.",
         posted_by_business_id: business.id,
       });
@@ -117,6 +138,15 @@ export default function BusinessPortal() {
     }
   };
 
+  const handleStopHiring = async (jobId: string) => {
+    try {
+      await api.updateJobHiringStatus(jobId, "stopped");
+      await load();
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Failed to stop hiring");
+    }
+  };
+
   const appsByJob = applications.reduce<Record<string, any[]>>((acc, app) => {
     if (!acc[app.job_id]) acc[app.job_id] = [];
     acc[app.job_id].push(app);
@@ -135,7 +165,7 @@ export default function BusinessPortal() {
       <Text style={styles.h1}>Dashboard</Text>
 
       <View style={styles.statsRow}>
-        <StatCard testID="stat-active-jobs" icon="briefcase" value={String(stats?.active_jobs ?? "—")} label="Active Jobs" color="#FF6B1A" />
+        <StatCard testID="stat-active-jobs" icon="briefcase" value={String(stats?.active_jobs ?? "—")} label="Active Jobs" color={COLORS.primary} />
         <StatCard testID="stat-applications" icon="document-text" value={String(stats?.applications ?? "—")} label="Applications" color="#10B981" />
         <StatCard testID="stat-hired" icon="people" value={String(stats?.hired ?? "—")} label="Hired" color="#3B82F6" />
         <StatCard testID="stat-views" icon="eye" value={String(stats?.profile_views ?? "—")} label="Profile Views" color="#A855F7" />
@@ -162,6 +192,11 @@ export default function BusinessPortal() {
                   <Text style={styles.jobBlockMeta}>
                     {job.city} · {jobApps.length} applicants
                   </Text>
+                  {job.active ? (
+                    <TouchableOpacity onPress={() => handleStopHiring(job.id)} style={styles.rejectBtn}>
+                      <Text style={styles.rejectBtnText}>Stop Hiring</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </TouchableOpacity>
                 {isOpen && (
                   <View style={styles.jobBlockBody}>
@@ -252,29 +287,40 @@ export default function BusinessPortal() {
 
         <View style={[styles.card, { flex: 1 }]}>
           <Text style={styles.h2}>Post a New Job</Text>
-          <Text style={styles.label}>Job Title</Text>
-          <TextInput
-            testID="post-title"
-            style={styles.input}
-            placeholder="e.g. Mason, Electrician"
-            value={title}
-            onChangeText={setTitle}
-            placeholderTextColor={COLORS.textSecondary}
-          />
 
-          <Text style={styles.label}>Select Industry</Text>
+          <Text style={styles.label}>Industry</Text>
           <View style={styles.indGrid}>
-            {INDUSTRIES.map((ind) => {
+            {metaIndustries.map((ind) => {
               const a = industry === ind.key;
               return (
                 <TouchableOpacity
                   key={ind.key}
                   testID={`post-industry-${ind.key}`}
-                  onPress={() => setIndustry(ind.key)}
+                  onPress={() => {
+                    setIndustry(ind.key);
+                    setTitle("");
+                  }}
                   style={[styles.indTile, a && styles.indTileActive]}
                 >
-                  <Ionicons name={ind.icon} size={18} color={a ? COLORS.primary : COLORS.textSecondary} />
+                  <Ionicons name={(ind.icon || "business") as any} size={18} color={a ? COLORS.primary : COLORS.textSecondary} />
                   <Text style={[styles.indLabel, a && { color: COLORS.primary }]}>{ind.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <Text style={styles.label}>Job role</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {jobRoles.map((role) => {
+              const a = title === role;
+              return (
+                <TouchableOpacity
+                  key={role}
+                  testID={`post-role-${role}`}
+                  onPress={() => setTitle(role)}
+                  style={[styles.chip, a && styles.chipActive]}
+                >
+                  <Text style={[styles.chipText, a && { color: COLORS.primary }]}>{role}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -321,6 +367,30 @@ export default function BusinessPortal() {
             placeholder="Tell workers about this role..."
             placeholderTextColor={COLORS.textSecondary}
           />
+          <Text style={styles.label}>Gender Preference</Text>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            {["Male", "Female", "Any"].map((g) => (
+              <TouchableOpacity key={g} style={[styles.chip, genderPreference === g && styles.chipActive]} onPress={() => setGenderPreference(g)}>
+                <Text style={styles.chipText}>{g}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.label}>Age Requirement</Text>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <TextInput style={[styles.input, { flex: 1 }]} value={ageMin} onChangeText={setAgeMin} keyboardType="number-pad" />
+            <TextInput style={[styles.input, { flex: 1 }]} value={ageMax} onChangeText={setAgeMax} keyboardType="number-pad" />
+          </View>
+          <Text style={styles.label}>Experience Requirement</Text>
+          <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+            {["Fresher", "1-2 Years", "3-5 Years", "5+ Years"].map((e) => (
+              <TouchableOpacity key={e} style={[styles.chip, experienceBand === e && styles.chipActive]} onPress={() => setExperienceBand(e)}>
+                <Text style={styles.chipText}>{e}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TouchableOpacity style={[styles.chip, salaryNegotiable && styles.chipActive]} onPress={() => setSalaryNegotiable(!salaryNegotiable)}>
+            <Text style={styles.chipText}>Salary Negotiable</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             testID="post-job-btn"
@@ -445,4 +515,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   rejectBtnText: { color: COLORS.error, fontWeight: "700", fontSize: 13 },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    borderWidth: 1.5,
+    borderColor: COLORS.borderLight,
+    backgroundColor: "#FFF",
+  },
+  chipActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
+  chipText: { fontSize: 12, fontWeight: "600", color: COLORS.textPrimary },
 });

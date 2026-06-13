@@ -16,15 +16,17 @@ import ScreenHeader from "@/src/components/ScreenHeader";
 import { api } from "@/src/api/client";
 import { session } from "@/src/store/session";
 import { t } from "@/src/i18n/translations";
-import { OTP_LENGTH } from "@/src/constants/otp";
+import { DEV_OTP, OTP_LENGTH, otpDigitsArray } from "@/src/constants/otp";
+import { getApiErrorMessage } from "@/src/utils/apiError";
 
 export default function OtpScreen() {
   const router = useRouter();
-  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const { phone, devMode } = useLocalSearchParams<{ phone: string; devMode?: string }>();
   const [digits, setDigits] = useState<string[]>(() => Array(OTP_LENGTH).fill(""));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [timer, setTimer] = useState(25);
+  const [isDevMode, setIsDevMode] = useState(devMode === "1");
   const inputs = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
@@ -32,6 +34,11 @@ export default function OtpScreen() {
     const id = setTimeout(() => setTimer((s) => s - 1), 1000);
     return () => clearTimeout(id);
   }, [timer]);
+
+  useEffect(() => {
+    if (!isDevMode || !__DEV__) return;
+    setDigits(otpDigitsArray(DEV_OTP));
+  }, [isDevMode]);
 
   const code = digits.join("");
   const valid = code.length === OTP_LENGTH;
@@ -57,23 +64,23 @@ export default function OtpScreen() {
       setError(null);
       const res = await api.verifyOtp(phone as string, code, "worker");
       if (res?.user?.id) {
+        if (res.access_token) await session.setAccessToken(res.access_token);
         await session.setWorkerId(res.user.id);
-        // Persist the selected language to the worker profile.
         const lang = await session.getLang();
         try {
           await api.updateWorker(res.user.id, { language: lang });
         } catch {
-          // Non-fatal
+          /* non-fatal */
         }
-        if (res.is_new || !res.user.gender || !res.user.city) {
+        if (res.is_new || !res.user.name?.trim()) {
           router.replace("/onboarding/personal");
         } else {
           await session.setOnboarded(true);
           router.replace("/(tabs)/home");
         }
       }
-    } catch (e: any) {
-      setError(e?.message?.includes("API") ? "Invalid or expired code. Try again." : (e?.message || "Invalid OTP"));
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, "Invalid or expired code. Try again."));
     } finally {
       setLoading(false);
     }
@@ -82,7 +89,16 @@ export default function OtpScreen() {
   const handleResend = async () => {
     if (timer > 0) return;
     setTimer(25);
-    await api.sendOtp(phone as string, "worker");
+    setError(null);
+    try {
+      const res = await api.sendOtp(phone as string, "worker");
+      if (res?.dev_mode && __DEV__) {
+        setIsDevMode(true);
+        setDigits(otpDigitsArray(DEV_OTP));
+      }
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, "Could not resend OTP. Please try again."));
+    }
   };
 
   return (
@@ -115,9 +131,15 @@ export default function OtpScreen() {
                 onChangeText={(v) => handleChange(i, v)}
                 onKeyPress={({ nativeEvent }) => handleKey(i, nativeEvent.key)}
                 placeholderTextColor={COLORS.border}
+                textContentType={i === 0 ? "oneTimeCode" : "none"}
+                autoComplete={Platform.OS === "android" ? "sms-otp" : "one-time-code"}
               />
             ))}
           </View>
+
+          {isDevMode && __DEV__ ? (
+            <Text style={styles.hint}>Development mode: OTP auto-filled as {DEV_OTP}.</Text>
+          ) : null}
 
           <View style={styles.resendRow}>
             <Text style={styles.resendText}>{t("didnt_receive")} </Text>
@@ -138,7 +160,6 @@ export default function OtpScreen() {
             loading={loading}
             style={{ marginTop: 32 }}
           />
-
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -169,5 +190,5 @@ const styles = StyleSheet.create({
   resendText: { color: COLORS.textSecondary, fontSize: 13 },
   resendCta: { color: COLORS.primary, fontSize: 13, fontWeight: "700" },
   error: { color: COLORS.error, textAlign: "center", marginTop: 12 },
-  hint: { textAlign: "center", color: COLORS.textSecondary, marginTop: 16, fontSize: 12, fontStyle: "italic" },
+  hint: { textAlign: "center", color: COLORS.textSecondary, marginTop: 12, fontSize: 12 },
 });

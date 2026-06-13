@@ -153,7 +153,7 @@ export default function JobDetail() {
           </Text>
 
           <View style={styles.metaRow}>
-            <Meta label={job.city} sub={`${job.distance_km} km away`} icon="location" />
+            <Meta label={job.city} sub={t("city")} icon="location" />
             <Meta label={getJobField(job, "experience") || job.experience} sub={t("experience")} icon="briefcase" />
             <Meta label={getJobField(job, "job_type") || job.job_type} sub={t("job_type")} icon="time" />
           </View>

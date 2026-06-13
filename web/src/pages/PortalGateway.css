@@ -65,7 +65,7 @@
 
 .portal-gateway__card:hover {
   border-color: var(--primary);
-  box-shadow: 0 16px 40px rgba(255, 107, 26, 0.12);
+  box-shadow: 0 2px 12px rgba(21, 101, 192, 0.12);
   transform: translateY(-2px);
 }
 
@@ -85,8 +85,9 @@
 }
 
 .portal-gateway__card-icon--blue {
-  background: #dbeafe;
-  color: #2563eb;
+  background: var(--primary-light);
+  color: var(--primary);
+}
 }
 
 .portal-gateway__card h2 {

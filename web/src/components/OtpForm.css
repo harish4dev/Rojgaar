@@ -6,7 +6,7 @@
   background: #fff;
   border-radius: 20px;
   border: 1px solid var(--border-light);
-  box-shadow: 0 20px 50px rgba(17, 24, 39, 0.08);
+  box-shadow: 0 2px 12px rgba(21, 101, 192, 0.12);
 }
 
 .otp-form__icon {
@@ -71,13 +71,14 @@
   margin-top: 8px;
   padding: 14px 20px;
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--primary);
   color: #fff;
   font-size: 0.9375rem;
   font-weight: 700;
   cursor: pointer;
   transition: background 0.15s;
+  box-shadow: var(--shadow-primary);
 }
 
 .otp-form button[type='submit']:hover:not(:disabled) {
@@ -113,6 +114,30 @@
   color: var(--error);
   border-radius: 10px;
   font-size: 0.875rem;
+}
+
+.otp-form__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.otp-form__chip {
+  padding: 10px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.otp-form__chip--active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary);
 }
 
 @media (max-width: 480px) {

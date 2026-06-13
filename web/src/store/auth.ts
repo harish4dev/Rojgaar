@@ -38,7 +38,7 @@ export function isProfileComplete(role: Role, user: Business | Partner): boolean
   if (user.profile_complete === false) return false
   if (role === 'business') {
     const b = user as Business
-    return !!(b.name?.trim() && b.company?.trim() && b.city?.trim())
+    return !!(b.name?.trim() && b.company?.trim() && b.city?.trim() && b.industry?.trim())
   }
   const p = user as Partner
   return !!(p.name?.trim() && p.city?.trim())

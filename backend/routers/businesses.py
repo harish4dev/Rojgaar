@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from database import db
+from meta_catalog import is_valid_industry, normalize_industry_key
 from schemas import BusinessProfileUpdate
 from services.db_helpers import get_doc_or_404, list_jobs_by_ids, list_workers_by_ids
 
@@ -23,12 +24,16 @@ async def update_business(business_id: str, payload: BusinessProfileUpdate):
         raise HTTPException(status_code=400, detail="company is required")
     if len(city) < 2:
         raise HTTPException(status_code=400, detail="city is required")
+    industry = normalize_industry_key(payload.industry)
+    if not is_valid_industry(industry):
+        raise HTTPException(status_code=400, detail="Invalid industry")
 
     await get_doc_or_404("businesses", business_id, "Business not found")
     updates = {
         "name": name,
         "company": company,
         "city": city,
+        "industry": industry,
         "profile_complete": True,
     }
     await db.businesses.update_one({"id": business_id}, {"$set": updates})

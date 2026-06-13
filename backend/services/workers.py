@@ -5,10 +5,14 @@ def compute_strength(worker: dict) -> int:
         "age",
         "city",
         "industries",
+        "industry_preference",
+        "preferred_job_title",
         "skills",
+        "languages_known",
         "experience",
         "expected_salary",
         "work_type",
+        "availability_status",
     ]
     filled = 0
     for field in fields:

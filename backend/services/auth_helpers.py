@@ -4,7 +4,8 @@ def business_needs_profile(doc: dict) -> bool:
     name = (doc.get("name") or "").strip()
     company = (doc.get("company") or "").strip()
     city = (doc.get("city") or "").strip()
-    if name and company and city and name != "New Business" and company != "My Company":
+    industry = (doc.get("industry") or "").strip()
+    if name and company and city and industry and name != "New Business" and company != "My Company":
         return False
     return True
 

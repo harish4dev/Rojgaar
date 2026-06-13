@@ -1,30 +1,36 @@
 import logging
 
 from database import db
-from schemas import Business, Job, Partner, PartnerCandidate
-from seed.jobs import SEED_JOBS
-from seed.translations import JOB_TRANSLATIONS
+from schemas import Business, Partner, PartnerCandidate
+from seed.jobs import SEED_JOB_TITLES
 
 logger = logging.getLogger(__name__)
 
 
+async def cleanup_dummy_jobs() -> int:
+    """Remove legacy demo/seed jobs from the database."""
+    result = await db.jobs.delete_many({"title": {"$in": SEED_JOB_TITLES}})
+    demo = await db.jobs.delete_many({"company": "Demo Workshop"})
+    deleted = result.deleted_count + demo.deleted_count
+    if deleted:
+        logger.info("Removed %d dummy/seed jobs", deleted)
+    return deleted
+
+
 async def seed_data() -> None:
-    count = await db.jobs.count_documents({})
-    if count == 0:
-        for job_data in SEED_JOBS:
-            translations = JOB_TRANSLATIONS.get(job_data["title"], {})
-            job = Job(**job_data, translations=translations)
-            await db.jobs.insert_one(job.model_dump())
-        logger.info("Seeded %d jobs", len(SEED_JOBS))
-    else:
-        updated = 0
-        async for job in db.jobs.find({}, {"_id": 0, "id": 1, "title": 1, "translations": 1}):
-            translations = JOB_TRANSLATIONS.get(job.get("title", ""), {})
-            if translations and not job.get("translations"):
-                await db.jobs.update_one({"id": job["id"]}, {"$set": {"translations": translations}})
-                updated += 1
-        if updated:
-            logger.info("Backfilled translations for %d jobs", updated)
+    await cleanup_dummy_jobs()
+
+    # Backfill translations for any remaining real jobs
+    from seed.translations import JOB_TRANSLATIONS
+
+    updated = 0
+    async for job in db.jobs.find({}, {"_id": 0, "id": 1, "title": 1, "translations": 1}):
+        translations = JOB_TRANSLATIONS.get(job.get("title", ""), {})
+        if translations and not job.get("translations"):
+            await db.jobs.update_one({"id": job["id"]}, {"$set": {"translations": translations}})
+            updated += 1
+    if updated:
+        logger.info("Backfilled translations for %d jobs", updated)
 
     biz = await db.businesses.find_one({"phone": "9999999999"}, {"_id": 0})
     if not biz:
@@ -33,13 +39,10 @@ async def seed_data() -> None:
             phone="9999999999",
             company="Sharma Construction",
             city="Bengaluru",
+            industry="garments",
             profile_complete=True,
         )
         await db.businesses.insert_one(business.model_dump())
-        await db.jobs.update_many(
-            {"company": "Sharma Construction"},
-            {"$set": {"posted_by_business_id": business.id}},
-        )
 
     partner_doc = await db.partners.find_one({"phone": "8888888888"}, {"_id": 0})
     if not partner_doc:

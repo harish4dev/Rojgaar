@@ -19,7 +19,7 @@ import ScreenContainer from "@/src/components/ScreenContainer";
 import EmptyState from "@/src/components/EmptyState";
 import ErrorBanner from "@/src/components/ErrorBanner";
 import { viewedJobs, type ViewedJobRecord } from "@/src/store/viewedJobs";
-import { getApiErrorMessage } from "@/src/utils/apiError";
+import { getApiErrorMessage, isAccountNotFoundError, isUnauthorizedError } from "@/src/utils/apiError";
 import { useResponsive } from "@/src/hooks/useResponsive";
 import { useTabBarInsets } from "@/src/hooks/useTabBarInsets";
 
@@ -45,7 +45,12 @@ export default function ActivityScreen() {
 
   const load = useCallback(async () => {
     const wid = await session.getWorkerId();
-    if (!wid) return;
+    const token = await session.getAccessToken();
+    if (!wid || !token) {
+      setLoading(false);
+      router.replace("/onboarding/language");
+      return;
+    }
     setLoading(true);
     try {
       setError(null);
@@ -58,11 +63,16 @@ export default function ActivityScreen() {
       setSaved(sv);
       setViewed(recent);
     } catch (e) {
+      if (isUnauthorizedError(e) || isAccountNotFoundError(e)) {
+        await session.clear();
+        router.replace("/onboarding/phone");
+        return;
+      }
       setError(getApiErrorMessage(e, "Could not load activity."));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useFocusEffect(
     useCallback(() => {

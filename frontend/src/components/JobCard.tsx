@@ -19,20 +19,25 @@ interface Job {
   title: string;
   company: string;
   city: string;
-  distance_km: number;
+  distance_km?: number;
   salary_min: number;
   salary_max: number;
   experience: string;
   job_type: string;
   image_url?: string | null;
   translations?: Record<string, any>;
+  contact_phone?: string | null;
 }
 
 export default function JobCard({
   job,
+  matchScore,
+  callToApply,
   onApplied,
 }: {
   job: Job;
+  matchScore?: number;
+  callToApply?: boolean;
   onApplied?: () => void;
 }) {
   const router = useRouter();
@@ -44,7 +49,7 @@ export default function JobCard({
 
   const handleCall = async (e?: any) => {
     e?.stopPropagation?.();
-    const didApply = await callAfterApply(job.id);
+    const didApply = await callAfterApply(job.id, job.contact_phone);
     if (!didApply) return;
     setApplied(true);
     onApplied?.();
@@ -66,9 +71,16 @@ export default function JobCard({
           </View>
         )}
         <View style={styles.body}>
-          <Text style={styles.title} numberOfLines={2}>
-            {tTitle}
-          </Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title} numberOfLines={2}>
+              {tTitle}
+            </Text>
+            {matchScore != null && matchScore > 0 ? (
+              <View style={styles.matchBadge}>
+                <Text style={styles.matchBadgeText}>{matchScore}% match</Text>
+              </View>
+            ) : null}
+          </View>
           <Text style={styles.company} numberOfLines={1}>
             {job.company}
           </Text>
@@ -76,9 +88,7 @@ export default function JobCard({
             ₹{job.salary_min.toLocaleString("en-IN")} - ₹{job.salary_max.toLocaleString("en-IN")}{" "}
             <Text style={styles.salaryMonth}>/month</Text>
           </Text>
-          <Text style={styles.location}>
-            {job.city} • {job.distance_km} km
-          </Text>
+          <Text style={styles.location}>{job.city}</Text>
           <View style={styles.tagRow}>
             <View style={styles.tag}>
               <Text style={styles.tagText} numberOfLines={1}>
@@ -100,7 +110,9 @@ export default function JobCard({
         style={[styles.callBtn, applied && styles.appliedBtn]}
       >
         <Ionicons name={applied ? "checkmark" : "call"} size={16} color="#FFF" />
-        <Text style={styles.callText}>{applied ? t("applied") : t("call")}</Text>
+        <Text style={styles.callText}>
+          {applied ? t("applied") : callToApply ? t("call_to_apply") : t("call")}
+        </Text>
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -126,7 +138,16 @@ const styles = StyleSheet.create({
   },
   topRow: { flexDirection: "row", gap: 12 },
   body: { flex: 1, minWidth: 0 },
-  title: { fontSize: 17, fontWeight: "700", color: COLORS.textPrimary },
+  titleRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 },
+  title: { fontSize: 17, fontWeight: "700", color: COLORS.textPrimary, flex: 1 },
+  matchBadge: {
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+    flexShrink: 0,
+  },
+  matchBadgeText: { fontSize: 10, fontWeight: "700", color: COLORS.primary },
   company: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
   salary: { fontSize: 15, fontWeight: "700", color: COLORS.textPrimary, marginTop: 6 },
   salaryMonth: { fontSize: 12, fontWeight: "400", color: COLORS.textSecondary },

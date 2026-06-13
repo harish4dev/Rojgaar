@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { COLORS, RADIUS } from "@/src/constants/theme";
@@ -7,8 +7,10 @@ import PrimaryButton from "@/src/components/PrimaryButton";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import ScreenContainer from "@/src/components/ScreenContainer";
 import { api } from "@/src/api/client";
+import { session } from "@/src/store/session";
 import { jobFilters } from "@/src/store/jobFilters";
 import { t } from "@/src/i18n/translations";
+import { getApiErrorMessage } from "@/src/utils/apiError";
 import { useResponsive } from "@/src/hooks/useResponsive";
 
 const JOB_TYPES = ["Full Time", "Part Time", "Daily Wage"];
@@ -67,11 +69,21 @@ export default function FilterScreen() {
   };
 
   const apply = async () => {
+    const wid = await session.getWorkerId();
+    const token = await session.getAccessToken();
+    if (!wid || !token) {
+      router.replace("/onboarding/language");
+      return;
+    }
     const params = buildParams();
-    const jobs = await api.listJobs({ ...params, limit: 100 });
-    await jobFilters.set(Object.keys(params).length ? params : null);
-    setCount(jobs.length);
-    setTimeout(() => router.back(), 450);
+    try {
+      const jobs = await api.getWorkerRecommendations(wid, 100, params);
+      await jobFilters.set(Object.keys(params).length ? params : null);
+      setCount(jobs.length);
+      setTimeout(() => router.back(), 450);
+    } catch (e) {
+      Alert.alert("Error", getApiErrorMessage(e, "Could not apply filters."));
+    }
   };
 
   const reset = async () => {

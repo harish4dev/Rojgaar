@@ -13,12 +13,13 @@ export default function Splash() {
     const timer = setTimeout(async () => {
       const onboarded = await session.isOnboarded();
       const workerId = await session.getWorkerId();
-      if (onboarded && workerId) {
+      const token = await session.getAccessToken();
+      if (onboarded && workerId && token) {
         router.replace("/(tabs)/home");
-      } else if (workerId) {
-        // Has account but didn't finish onboarding — resume from personal step
+      } else if (workerId && token) {
         router.replace("/onboarding/personal");
       } else {
+        await session.clear();
         router.replace("/onboarding/language");
       }
     }, 1200);

@@ -2,12 +2,13 @@ const BASE = import.meta.env.VITE_BACKEND_URL ?? ''
 
 async function req<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE}/api${path}`
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData
   let res: Response
   try {
     res = await fetch(url, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         ...(options.headers || {}),
       },
     })
@@ -31,6 +32,7 @@ export interface Business {
   phone: string
   company: string
   city: string
+  industry?: string
   profile_complete?: boolean
   created_at?: string
 }
@@ -53,6 +55,20 @@ export interface Job {
   city: string
   salary_min: number
   salary_max: number
+  salary_negotiable?: boolean
+  gender_preference?: string
+  age_min?: number
+  age_max?: number
+  experience_band?: string
+  preferred_languages?: string[]
+  working_hours?: string
+  working_days_per_week?: number
+  shift_type?: string
+  accommodation_provided?: boolean
+  food_provided?: boolean
+  transportation_provided?: boolean
+  benefits?: string[]
+  hiring_status?: 'active' | 'stopped'
   description: string
   active: boolean
   applications_count?: number
@@ -88,6 +104,7 @@ export interface PartnerCandidate {
   partner_id: string
   name: string
   employee_number: string
+  industry?: string
   skill: string
   experience: string
   city: string
@@ -102,6 +119,7 @@ export interface PartnerCandidate {
 export interface PartnerCandidateCreate {
   name: string
   employee_number: string
+  industry?: string
   skill: string
   experience: string
   city: string
@@ -112,7 +130,7 @@ export interface PartnerCandidateCreate {
 
 export const api = {
   sendOtp: (phone: string, role: Role) =>
-    req<{ success: boolean; message: string }>('/auth/send-otp', {
+    req<{ success: boolean; message: string; dev_mode?: boolean }>('/auth/send-otp', {
       method: 'POST',
       body: JSON.stringify({ phone, role }),
     }),
@@ -123,7 +141,7 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ phone, otp, role }) },
     ),
 
-  updateBusiness: (id: string, data: { name: string; company: string; city: string }) =>
+  updateBusiness: (id: string, data: { name: string; company: string; city: string; industry: string }) =>
     req<Business>(`/businesses/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -161,9 +179,28 @@ export const api = {
     city: string
     salary_min: number
     salary_max: number
+    salary_negotiable?: boolean
+    gender_preference?: string
+    age_min?: number
+    age_max?: number
+    experience_band?: string
+    preferred_languages?: string[]
+    working_hours?: string
+    working_days_per_week?: number
+    shift_type?: string
+    accommodation_provided?: boolean
+    food_provided?: boolean
+    transportation_provided?: boolean
+    benefits?: string[]
     description: string
     posted_by_business_id: string
   }) => req<Job>('/jobs', { method: 'POST', body: JSON.stringify(data) }),
+
+  updateJobHiringStatus: (jobId: string, hiring_status: 'active' | 'stopped') =>
+    req<Job>(`/jobs/${jobId}/hiring-status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ hiring_status }),
+    }),
 
   getPartnerStats: (id: string) =>
     req<{
@@ -175,6 +212,29 @@ export const api = {
 
   getPartnerCandidates: (id: string) =>
     req<PartnerCandidate[]>(`/partners/${id}/candidates`),
+
+  getGreyCollarSkills: () => req<Record<string, string[]>>('/meta/grey-collar-skills'),
+  getIndustries: () => req<{ key: string; label: string; icon?: string }[]>('/meta/industries'),
+  getIndustryJobTitles: () => req<Record<string, string[]>>('/meta/industry-job-titles'),
+
+  bulkUploadPartnerCandidates: (id: string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return req<{ created: number; failed: number; errors: string[] }>(`/partners/${id}/bulk/candidates`, {
+      method: 'POST',
+      body: formData,
+      headers: {},
+    })
+  },
+  bulkUploadPartnerJobs: (id: string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return req<{ created: number; failed: number; errors: string[] }>(`/partners/${id}/bulk/jobs`, {
+      method: 'POST',
+      body: formData,
+      headers: {},
+    })
+  },
 
   requestPartnerCandidateOtp: (id: string, data: PartnerCandidateCreate) =>
     req<{ success: boolean; message: string; phone: string }>(
@@ -189,5 +249,10 @@ export const api = {
     req<{ success: boolean; candidate: PartnerCandidate; worker_id?: string }>(
       `/partners/${id}/candidates/confirm`,
       { method: 'POST', body: JSON.stringify(data) },
+    ),
+
+  getJobCandidatesRanking: (jobId: string, limit: number = 50) =>
+    req<{ worker: WorkerProfile; match_score: number; match_reasons: string[] }[]>(
+      `/recommendations/jobs/${jobId}/candidates?limit=${limit}`,
     ),
 }

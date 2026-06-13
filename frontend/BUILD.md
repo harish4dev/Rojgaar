@@ -1,5 +1,27 @@
 # Rojgaar Worker App — Production Build
 
+## Ship checklist (invite workers to register)
+
+1. **Deploy the API** (the old `rojgaar-connect.preview.emergentagent.com` URL is down)
+   - Use `backend/Dockerfile` + `backend/render.yaml` on [Render](https://render.com), or any host that runs Docker
+   - Set env: `MONGO_URL`, `DB_NAME`, `JWT_SECRET` (long random string), Twilio vars, `OTP_DEV_MODE=false`
+   - Confirm: `GET https://YOUR-API/api/` → `{"status":"ok"}`
+
+2. **Point the app at your API**
+   - `frontend/eas.json` → `production.env.EXPO_PUBLIC_BACKEND_URL` and `preview.env.EXPO_PUBLIC_BACKEND_URL`
+   - For local device testing: `frontend/.env` → `http://YOUR_LAN_IP:8000` (not `0.0.0.0`)
+
+3. **Build a shareable APK**
+   ```bash
+   cd frontend
+   eas login
+   eas init   # once — sets EAS_PROJECT_ID in app.config.ts / Expo dashboard
+   eas build --platform android --profile preview
+   ```
+   Share the APK link from the EAS dashboard. Workers install → language → phone → **real SMS OTP** → name/age → optional profile → home.
+
+4. **Businesses post real jobs** via `web/` business portal (`npm run dev` or deploy `web/dist`).
+
 ## Prerequisites
 
 1. Node.js 18+ and Yarn

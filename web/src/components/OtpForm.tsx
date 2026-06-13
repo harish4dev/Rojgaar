@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowRight, Smartphone, UserCircle } from 'lucide-react'
 import { api, type Business, type Partner, type Role } from '@/api/client'
 import { setSession } from '@/store/auth'
-import { OTP_LENGTH, digitsOnlyOtp, isValidOtp } from '@/constants/otp'
+import { OTP_LENGTH, digitsOnlyOtp, isValidOtp, DEV_OTP } from '@/constants/otp'
+import { getApiErrorMessage } from '@/utils/apiError'
 import './OtpForm.css'
 
 interface OtpFormProps {
@@ -23,9 +24,22 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
   const [name, setName] = useState('')
   const [company, setCompany] = useState('')
   const [city, setCity] = useState('Bengaluru')
+  const [industry, setIndustry] = useState('garments')
+  const [industries, setIndustries] = useState<{ key: string; label: string }[]>([])
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [devMode, setDevMode] = useState(false)
+
+  useEffect(() => {
+    if (step !== 'profile' || role !== 'business') return
+    api.getIndustries()
+      .then((inds) => {
+        setIndustries(inds)
+        if (inds.length === 1) setIndustry(inds[0].key)
+      })
+      .catch(() => {})
+  }, [step, role])
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,11 +51,17 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
     setError('')
     setLoading(true)
     try {
-      await api.sendOtp(cleaned, role)
+      const res = await api.sendOtp(cleaned, role)
       setPhone(cleaned)
+      setDevMode(Boolean(res.dev_mode))
+      if (res.dev_mode) {
+        setOtp(DEV_OTP)
+      } else {
+        setOtp('')
+      }
       setStep('otp')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send OTP')
+      setError(getApiErrorMessage(err, 'Failed to send OTP'))
     } finally {
       setLoading(false)
     }
@@ -65,7 +85,7 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
       setSession(role, res.user)
       onSuccess()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid OTP')
+      setError(getApiErrorMessage(err, 'Invalid OTP'))
     } finally {
       setLoading(false)
     }
@@ -85,6 +105,10 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
       setError('Company name is required')
       return
     }
+    if (role === 'business' && !industry) {
+      setError('Please select your industry')
+      return
+    }
 
     setError('')
     setLoading(true)
@@ -95,6 +119,7 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
           name: trimmedName,
           company: company.trim(),
           city: trimmedCity,
+          industry,
         })
       } else {
         user = await api.updatePartner(pendingUser.id, {
@@ -105,7 +130,7 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
       setSession(role, user)
       onSuccess()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save profile')
+      setError(getApiErrorMessage(err, 'Failed to save profile'))
     } finally {
       setLoading(false)
     }
@@ -139,9 +164,10 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
             id="phone"
             type="tel"
             inputMode="numeric"
-            placeholder="9876543210"
+            placeholder="Enter 10-digit mobile number"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+            autoComplete="off"
             autoFocus
           />
           <button type="submit" disabled={loading}>
@@ -159,11 +185,15 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
             type="text"
             inputMode="numeric"
             maxLength={OTP_LENGTH}
-            placeholder="1234"
+            placeholder="Enter 4-digit OTP"
             value={otp}
             onChange={(e) => setOtp(digitsOnlyOtp(e.target.value))}
+            autoComplete="one-time-code"
             autoFocus
           />
+          {devMode && (
+            <p className="otp-form__hint">Development mode: OTP auto-filled as {DEV_OTP}.</p>
+          )}
           <button type="submit" disabled={loading || !isValidOtp(otp)}>
             {loading ? 'Verifying…' : 'Verify OTP'}
             {!loading && <ArrowRight size={16} />}
@@ -173,7 +203,9 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
             className="otp-form__back"
             onClick={() => {
               setStep('phone')
+              setPhone('')
               setOtp('')
+              setDevMode(false)
               setError('')
             }}
           >
@@ -204,6 +236,20 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
                 value={company}
                 onChange={(e) => setCompany(e.target.value)}
               />
+
+              <label>Industry</label>
+              <div className="otp-form__chips">
+                {industries.map((ind) => (
+                  <button
+                    key={ind.key}
+                    type="button"
+                    className={`otp-form__chip${industry === ind.key ? ' otp-form__chip--active' : ''}`}
+                    onClick={() => setIndustry(ind.key)}
+                  >
+                    {ind.label}
+                  </button>
+                ))}
+              </div>
             </>
           )}
 

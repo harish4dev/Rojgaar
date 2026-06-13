@@ -4,7 +4,6 @@ import {
   BarChart3,
   Briefcase,
   CheckCircle2,
-  DollarSign,
   UserPlus,
   Users,
 } from 'lucide-react'
@@ -17,19 +16,6 @@ import '../Dashboard.css'
 const NAV = [
   { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
   { key: 'candidates', label: 'Candidates', icon: Users },
-]
-
-const SKILLS = [
-  'Mason',
-  'Helper',
-  'Painter',
-  'Electrician',
-  'Welder',
-  'Plumber',
-  'Carpenter',
-  'Driver',
-  'Security',
-  'Other',
 ]
 
 const EXP = ['Fresher', '1-2 Years', '3-5 Years', '5+ Years']
@@ -92,7 +78,10 @@ export default function PartnerDashboard() {
 
   const [name, setName] = useState('')
   const [employeeNumber, setEmployeeNumber] = useState('')
-  const [skill, setSkill] = useState('Mason')
+  const [skill, setSkill] = useState('Tailor')
+  const [skillIndustry, setSkillIndustry] = useState('garments')
+  const [metaIndustries, setMetaIndustries] = useState<{ key: string; label: string }[]>([])
+  const [jobTitlesByIndustry, setJobTitlesByIndustry] = useState<Record<string, string[]>>({})
   const [exp, setExp] = useState('1-2 Years')
   const [city, setCity] = useState('Bengaluru')
   const [gender, setGender] = useState('Male')
@@ -103,6 +92,9 @@ export default function PartnerDashboard() {
   const [pendingPhone, setPendingPhone] = useState('')
   const [adding, setAdding] = useState(false)
   const [message, setMessage] = useState('')
+  const [bulkFile, setBulkFile] = useState<File | null>(null)
+  const [bulkType, setBulkType] = useState<'candidates' | 'jobs'>('candidates')
+  const [bulkResult, setBulkResult] = useState<{ created: number; failed: number; errors: string[] } | null>(null)
 
   const refresh = useCallback(async (p: Partner) => {
     const [s, c] = await Promise.all([
@@ -117,6 +109,20 @@ export default function PartnerDashboard() {
     if (!partnerUser) return
     refresh(partnerUser).catch(console.warn)
   }, [partnerUser, refresh])
+
+  useEffect(() => {
+    Promise.all([api.getIndustries(), api.getIndustryJobTitles()])
+      .then(([inds, titles]) => {
+        setMetaIndustries(inds)
+        setJobTitlesByIndustry(titles)
+        if (inds.length === 1) {
+          setSkillIndustry(inds[0].key)
+          const firstRole = titles[inds[0].key]?.[0]
+          if (firstRole) setSkill(firstRole)
+        }
+      })
+      .catch(console.warn)
+  }, [])
 
   if (!partnerUser || !isProfileComplete('partner', partnerUser)) {
     return <Navigate to="/partner/login" replace />
@@ -151,6 +157,7 @@ export default function PartnerDashboard() {
       const res = await api.requestPartnerCandidateOtp(partnerUser.id, {
         name: name.trim(),
         employee_number: cleanedNumber,
+        industry: skillIndustry,
         skill,
         experience: exp,
         city: city.trim(),
@@ -191,6 +198,25 @@ export default function PartnerDashboard() {
   }
 
   const pageTitle = active === 'candidates' ? 'Candidates' : 'Dashboard'
+  const availableSkills = jobTitlesByIndustry[skillIndustry] ?? []
+
+  const handleBulkUpload = async () => {
+    if (!bulkFile) {
+      setMessage('Please select a CSV or XLSX file.')
+      return
+    }
+    try {
+      const res =
+        bulkType === 'candidates'
+          ? await api.bulkUploadPartnerCandidates(partnerUser.id, bulkFile)
+          : await api.bulkUploadPartnerJobs(partnerUser.id, bulkFile)
+      setBulkResult(res)
+      setMessage(`Bulk upload completed: ${res.created} created, ${res.failed} failed.`)
+      await refresh(partnerUser)
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Bulk upload failed')
+    }
+  }
 
   return (
     <PortalLayout
@@ -217,12 +243,6 @@ export default function PartnerDashboard() {
           value={String(stats?.placed ?? '—')}
           label="Placed"
           color="#10B981"
-        />
-        <StatCard
-          icon={DollarSign}
-          value={`₹${(stats?.total_earnings ?? 0).toLocaleString('en-IN')}`}
-          label="Total Earnings"
-          color="#A855F7"
         />
       </div>
 
@@ -319,9 +339,27 @@ export default function PartnerDashboard() {
                   ))}
                 </div>
 
-                <label className="dash-label">Skill</label>
+                <label className="dash-label">Industry</label>
                 <div className="dash-chips">
-                  {SKILLS.map((s) => (
+                  {metaIndustries.map((ind) => (
+                    <button
+                      key={ind.key}
+                      type="button"
+                      className={`dash-chip${skillIndustry === ind.key ? ' dash-chip--active' : ''}`}
+                      onClick={() => {
+                        setSkillIndustry(ind.key)
+                        const first = (jobTitlesByIndustry[ind.key] || [])[0]
+                        if (first) setSkill(first)
+                      }}
+                    >
+                      {ind.label}
+                    </button>
+                  ))}
+                </div>
+
+                <label className="dash-label">Job role</label>
+                <div className="dash-chips">
+                  {availableSkills.map((s) => (
                     <button
                       key={s}
                       type="button"
@@ -362,6 +400,34 @@ export default function PartnerDashboard() {
                 >
                   {adding ? 'Sending OTP…' : 'Send OTP to employee'}
                 </button>
+                <hr style={{ margin: '16px 0' }} />
+                <label className="dash-label">Bulk upload type</label>
+                <div className="dash-chips">
+                  {(['candidates', 'jobs'] as const).map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      className={`dash-chip${bulkType === type ? ' dash-chip--active' : ''}`}
+                      onClick={() => setBulkType(type)}
+                    >
+                      {type === 'candidates' ? 'Candidates' : 'Jobs'}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  className="dash-input"
+                  type="file"
+                  accept=".csv,.xlsx"
+                  onChange={(e) => setBulkFile(e.target.files?.[0] ?? null)}
+                />
+                <button type="button" className="dash-submit" onClick={handleBulkUpload}>
+                  Upload {bulkType}
+                </button>
+                {bulkResult && (
+                  <p className="dash-muted">
+                    Created {bulkResult.created}, Failed {bulkResult.failed}
+                  </p>
+                )}
               </>
             ) : (
               <>

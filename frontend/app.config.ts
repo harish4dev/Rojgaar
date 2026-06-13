@@ -35,7 +35,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     versionCode: 1,
     adaptiveIcon: {
       foregroundImage: "./assets/images/adaptive-icon.png",
-      backgroundColor: "#FF6B1A",
+      backgroundColor: "#1565C0",
     },
     edgeToEdgeEnabled: true,
   },
@@ -46,6 +46,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     "expo-router",
+    [
+      "expo-location",
+      {
+        locationWhenInUsePermission:
+          "Rojgaar uses your location to detect your city and show nearby jobs.",
+      },
+    ],
     [
       "expo-splash-screen",
       {

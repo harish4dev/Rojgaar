@@ -1,22 +1,26 @@
 export const COLORS = {
-  primary: "#FF6B1A",
-  primaryHover: "#E65A12",
-  primaryLight: "#FFF0E6",
-  bgApp: "#F9FAFB",
+  primary: "#1565C0",
+  primaryHover: "#0D3D8A",
+  primaryDark: "#0D3D8A",
+  primaryLight: "#E8F0FE",
+  accent: "#4A90D9",
+  bgApp: "#FFFFFF",
+  surface: "#F5F8FF",
   bgCard: "#FFFFFF",
-  sidebarBg: "#111827",
-  sidebarHover: "#1F2937",
-  textPrimary: "#111827",
-  textSecondary: "#6B7280",
+  sidebarBg: "#0A1A3A",
+  sidebarHover: "#0D3D8A",
+  textPrimary: "#0A1A3A",
+  textSecondary: "#4A5568",
   textInverse: "#FFFFFF",
-  border: "#E5E7EB",
-  borderLight: "#F3F4F6",
-  success: "#10B981",
+  border: "#D0DEF5",
+  borderLight: "#E8F0FE",
+  success: "#2DB67D",
   warning: "#F59E0B",
   error: "#EF4444",
   successBg: "#D1FAE5",
   warningBg: "#FEF3C7",
   errorBg: "#FEE2E2",
+  shadowPrimary: "rgba(21, 101, 192, 0.12)",
 };
 
 export const SPACING = {
@@ -30,14 +34,14 @@ export const SPACING = {
 
 export const RADIUS = {
   sm: 8,
-  md: 12,
+  md: 10,
   lg: 16,
   xl: 20,
+  button: 10,
   full: 999,
 };
 
 export const FONT = {
-  // We rely on system fonts to avoid loading custom fonts at startup.
   bold: "700" as const,
   semibold: "600" as const,
   medium: "500" as const,

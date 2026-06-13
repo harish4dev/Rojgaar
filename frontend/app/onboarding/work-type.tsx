@@ -13,6 +13,7 @@ import { t } from "@/src/i18n/translations";
 export default function WorkTypeScreen() {
   const router = useRouter();
   const [type, setType] = useState<string | null>("Full Time");
+  const [saving, setSaving] = useState(false);
 
   const options = [
     { key: "Full Time", title: t("full_time"), desc: t("full_time_desc"), icon: "time" },
@@ -21,12 +22,16 @@ export default function WorkTypeScreen() {
     { key: "Any", title: t("any_work"), desc: t("any_work_desc"), icon: "infinite" },
   ];
 
-  const handleSave = async () => {
-    if (!type) return;
-    const wid = await session.getWorkerId();
-    if (wid) await api.updateWorker(wid, { work_type: type });
-    await session.setOnboarded(true);
-    router.replace("/onboarding/ready");
+  const finish = async (saveType = true) => {
+    setSaving(true);
+    try {
+      const wid = await session.getWorkerId();
+      if (wid && saveType && type) await api.updateWorker(wid, { work_type: type });
+      await session.setOnboarded(true);
+      router.replace("/onboarding/ready");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -34,6 +39,7 @@ export default function WorkTypeScreen() {
       <ScreenHeader title="" />
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>{t("what_kind")}</Text>
+        <Text style={styles.subtitle}>Optional</Text>
         <View style={{ gap: 12, marginTop: 24 }}>
           {options.map((o) => {
             const active = type === o.key;
@@ -61,7 +67,15 @@ export default function WorkTypeScreen() {
         </View>
       </ScrollView>
       <View style={styles.footer}>
-        <PrimaryButton testID="worktype-save" title={t("save_continue")} onPress={handleSave} />
+        <TouchableOpacity onPress={() => finish(false)} style={styles.skipBtn}>
+          <Text style={styles.skipText}>Skip for now</Text>
+        </TouchableOpacity>
+        <PrimaryButton
+          testID="worktype-save"
+          title={t("save_continue")}
+          onPress={() => finish(true)}
+          loading={saving}
+        />
       </View>
     </SafeAreaView>
   );
@@ -69,8 +83,9 @@ export default function WorkTypeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFF" },
-  scroll: { padding: 24, paddingBottom: 120 },
+  scroll: { padding: 24, paddingBottom: 140 },
   title: { fontSize: 22, fontWeight: "700", color: COLORS.textPrimary, textAlign: "center" },
+  subtitle: { fontSize: 13, color: COLORS.textSecondary, textAlign: "center", marginTop: 6, marginBottom: 8 },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -111,5 +126,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderTopWidth: 1,
     borderTopColor: COLORS.borderLight,
+    gap: 8,
   },
+  skipBtn: { alignItems: "center", paddingVertical: 4 },
+  skipText: { fontSize: 14, fontWeight: "600", color: COLORS.textSecondary },
 });

@@ -23,7 +23,7 @@ import ScreenContainer from "@/src/components/ScreenContainer";
 import EmptyState from "@/src/components/EmptyState";
 import { t } from "@/src/i18n/translations";
 import ErrorBanner from "@/src/components/ErrorBanner";
-import { getApiErrorMessage } from "@/src/utils/apiError";
+import { getApiErrorMessage, isAccountNotFoundError, isUnauthorizedError } from "@/src/utils/apiError";
 import { useResponsive } from "@/src/hooks/useResponsive";
 import { useTabBarInsets } from "@/src/hooks/useTabBarInsets";
 
@@ -42,44 +42,21 @@ interface Job {
   company: string;
   city: string;
   industry?: string;
-  distance_km: number;
+  distance_km?: number;
   salary_min: number;
   salary_max: number;
   experience: string;
   job_type: string;
   image_url?: string | null;
+  contact_phone?: string | null;
+  match_score?: number;
 }
 
-const RECOMMENDED_LIMIT = 5;
+const RECOMMENDED_LIMIT = 10;
+const MATCHED_JOBS_LIMIT = 50;
 
 function lc(s: string) {
   return s.trim().toLowerCase();
-}
-
-function scoreJob(job: Job, worker: Worker | null): number {
-  if (!worker) return 0;
-  let score = 0;
-  if (worker.city && lc(job.city) === lc(worker.city)) score += 3;
-  const hay = [job.title, job.industry, job.company].filter(Boolean).map((x) => lc(x!)).join(" ");
-  for (const skill of worker.skills ?? []) {
-    if (skill && hay.includes(lc(skill))) score += 2;
-  }
-  for (const ind of worker.industries ?? []) {
-    const indLc = lc(ind);
-    if (job.industry && lc(job.industry) === indLc) score += 2;
-    else if (ind && hay.includes(indLc)) score += 1;
-  }
-  return score;
-}
-
-function pickRecommended(jobs: Job[], worker: Worker | null): Job[] {
-  if (!jobs.length) return [];
-  const scored = jobs
-    .map((job) => ({ job, score: scoreJob(job, worker) }))
-    .sort((a, b) => b.score - a.score);
-  const withSignal = scored.filter((s) => s.score > 0);
-  const pool = withSignal.length > 0 ? withSignal : scored;
-  return pool.slice(0, RECOMMENDED_LIMIT).map((s) => s.job);
 }
 
 function filterJobsByChip(jobs: Job[], chip: string, worker: Worker | null): Job[] {
@@ -88,11 +65,14 @@ function filterJobsByChip(jobs: Job[], chip: string, worker: Worker | null): Job
       return jobs.filter((j) => j.job_type === "Daily Wage");
     case "full":
       return jobs.filter((j) => j.job_type === "Full Time");
-    case "construction":
-      return jobs.filter((j) => j.industry === "construction");
+    case "garments":
+      return jobs.filter((j) => {
+        const ind = lc(j.industry || "");
+        return ind === "garments" || ind === "garment";
+      });
     case "nearby":
       if (!worker?.city) return jobs;
-      return jobs.filter((j) => lc(j.city) === lc(worker.city));
+      return jobs.filter((j) => lc(j.city) === lc(worker.city!));
     default:
       return jobs;
   }
@@ -112,7 +92,7 @@ const FILTERS = [
   { key: "nearby", label: () => t("nearby"), icon: "location" as const },
   { key: "daily", label: () => t("daily_wage"), icon: "cash-outline" as const },
   { key: "full", label: () => t("full_time"), icon: "briefcase-outline" as const },
-  { key: "construction", label: () => "Construction", icon: "construct-outline" as const },
+  { key: "garments", label: () => "Garments", icon: "shirt-outline" as const },
 ];
 
 function initials(name?: string) {
@@ -131,6 +111,7 @@ export default function Home() {
   const { scrollBottomPadding } = useTabBarInsets();
   const [worker, setWorker] = useState<Worker | null>(null);
   const [allJobs, setAllJobs] = useState<Job[]>([]);
+  const [recommendedJobs, setRecommendedJobs] = useState<Job[]>([]);
   const [appliedFilters, setAppliedFilters] = useState<JobFilterParams | null>(null);
   const [activeChip, setActiveChip] = useState("nearby");
   const [search, setSearch] = useState("");
@@ -140,7 +121,8 @@ export default function Home() {
 
   const loadAll = useCallback(async () => {
     const wid = await session.getWorkerId();
-    if (!wid) {
+    const token = await session.getAccessToken();
+    if (!wid || !token) {
       router.replace("/onboarding/language");
       return;
     }
@@ -150,15 +132,21 @@ export default function Home() {
       setWorker(w);
       const saved = await jobFilters.get();
       setAppliedFilters(saved);
-      const params: Record<string, string | number> = { limit: 100 };
-      if (saved?.job_type) params.job_type = saved.job_type;
-      if (saved?.industry) params.industry = saved.industry;
-      if (saved?.experience) params.experience = saved.experience;
-      if (saved?.salary_min != null) params.salary_min = saved.salary_min;
-      if (saved?.salary_max != null) params.salary_max = saved.salary_max;
-      const data: Job[] = await api.listJobs(params);
-      setAllJobs(data);
+      const recParams: Record<string, string | number> = {};
+      if (saved?.industry) recParams.industry = saved.industry;
+      if (saved?.job_type) recParams.job_type = saved.job_type;
+      if (saved?.experience) recParams.experience = saved.experience;
+      if (saved?.salary_min != null) recParams.salary_min = saved.salary_min;
+      if (saved?.salary_max != null) recParams.salary_max = saved.salary_max;
+      const matched = (await api.getWorkerRecommendations(wid, MATCHED_JOBS_LIMIT, recParams)) as Job[];
+      setRecommendedJobs(matched.slice(0, RECOMMENDED_LIMIT));
+      setAllJobs(matched);
     } catch (e) {
+      if (isUnauthorizedError(e) || isAccountNotFoundError(e)) {
+        await session.clear();
+        router.replace("/onboarding/phone");
+        return;
+      }
       setError(getApiErrorMessage(e, "Could not load jobs."));
     } finally {
       setLoading(false);
@@ -177,20 +165,13 @@ export default function Home() {
     loadAll();
   };
 
-  const activeChipLabel = useMemo(
-    () => FILTERS.find((f) => f.key === activeChip)?.label() ?? t("nearby"),
-    [activeChip]
-  );
+  const allJobsList = useMemo(() => {
+    const recommendedIds = new Set(recommendedJobs.map((j) => j.id));
+    const filtered = filterJobsByChip(filterJobsBySearch(allJobs, search), activeChip, worker);
+    return filtered.filter((j) => !recommendedIds.has(j.id));
+  }, [allJobs, search, activeChip, worker, recommendedJobs]);
 
-  const allJobsList = useMemo(
-    () => filterJobsBySearch(allJobs, search),
-    [allJobs, search]
-  );
-
-  const recommendedJobs = useMemo(() => {
-    const pool = filterJobsByChip(allJobs, activeChip, worker);
-    return pickRecommended(pool, worker);
-  }, [allJobs, activeChip, worker]);
+  const topRecommendations = useMemo(() => recommendedJobs, [recommendedJobs]);
 
   const filtersActive = Boolean(appliedFilters && Object.keys(appliedFilters).length > 0);
 
@@ -207,7 +188,7 @@ export default function Home() {
         >
           {/* Hero */}
           <LinearGradient
-            colors={["#FF6B1A", "#FF8534", "#FFA04D"]}
+            colors={["#1565C0", "#1A5FCC", "#0D3D8A"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[styles.hero, { paddingHorizontal: horizontalPadding }]}
@@ -292,20 +273,7 @@ export default function Home() {
           </LinearGradient>
 
           {/* Sticky quick actions */}
-          <View style={[styles.quickActionsBar, { paddingHorizontal: horizontalPadding }]}>
-            <QuickAction
-              icon="bookmark-outline"
-              label={t("saved_jobs")}
-              onPress={() => router.push("/saved")}
-              testID="quick-saved"
-            />
-            <QuickAction
-              icon="options-outline"
-              label={t("filter_jobs")}
-              onPress={() => router.push("/filter")}
-              testID="quick-filter"
-            />
-          </View>
+         
 
           <View style={[styles.body, { paddingHorizontal: horizontalPadding }]}>
             {error ? (
@@ -360,7 +328,7 @@ export default function Home() {
                 <ActivityIndicator color={COLORS.primary} size="large" />
                 <Text style={styles.loaderText}>Finding jobs for you...</Text>
               </View>
-            ) : allJobsList.length === 0 ? (
+            ) : allJobsList.length === 0 && topRecommendations.length === 0 ? (
               <EmptyState
                 icon="search-outline"
                 title="No jobs found"
@@ -372,21 +340,23 @@ export default function Home() {
               />
             ) : (
               <>
-                {recommendedJobs.length > 0 ? (
+                {topRecommendations.length > 0 ? (
                   <View style={styles.subsection}>
                     <Text style={styles.subsectionTitle}>{t("recommended_for_you")}</Text>
-                    <Text style={styles.subsectionSub}>{activeChipLabel}</Text>
-                    {recommendedJobs.map((j) => (
-                      <JobCard key={`rec-${j.id}`} job={j} />
+                    <Text style={styles.subsectionSub}>Matched to your profile</Text>
+                    {topRecommendations.map((j) => (
+                      <JobCard key={`rec-${j.id}`} job={j} matchScore={j.match_score} callToApply />
                     ))}
                   </View>
                 ) : null}
+                {allJobsList.length > 0 ? (
                 <View style={styles.subsection}>
                   <Text style={styles.subsectionTitle}>{t("all_jobs")}</Text>
                   {allJobsList.map((j) => (
                     <JobCard key={j.id} job={j} />
                   ))}
                 </View>
+                ) : null}
               </>
             )}
           </View>

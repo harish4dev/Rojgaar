@@ -8,11 +8,13 @@ import PrimaryButton from "@/src/components/PrimaryButton";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import { api } from "@/src/api/client";
 import { t } from "@/src/i18n/translations";
+import { getApiErrorMessage } from "@/src/utils/apiError";
 
 export default function PhoneScreen() {
   const router = useRouter();
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const validPhone = /^\d{10}$/.test(phone);
 
@@ -20,10 +22,14 @@ export default function PhoneScreen() {
     if (!validPhone) return;
     try {
       setLoading(true);
-      await api.sendOtp(phone, "worker");
-      router.push({ pathname: "/onboarding/otp", params: { phone } });
-    } catch (e: any) {
-      console.warn("OTP send failed", e?.message);
+      setError(null);
+      const res = await api.sendOtp(phone, "worker");
+      router.push({
+        pathname: "/onboarding/otp",
+        params: { phone, devMode: res?.dev_mode ? "1" : "0" },
+      });
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, "Could not send OTP. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -53,14 +59,19 @@ export default function PhoneScreen() {
             <TextInput
               testID="phone-input"
               style={styles.input}
-              placeholder="98765 43210"
+              placeholder="Enter mobile number"
               keyboardType="number-pad"
               maxLength={10}
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={(v) => setPhone(v.replace(/\D/g, "").slice(0, 10))}
               placeholderTextColor={COLORS.textSecondary}
+              autoComplete="off"
+              textContentType="none"
+              importantForAutofill="no"
             />
           </View>
+
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <PrimaryButton
             testID="phone-continue"
@@ -120,4 +131,5 @@ const styles = StyleSheet.create({
   },
   safeNote: { flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "center", marginTop: 12 },
   safeNoteText: { fontSize: 12, color: COLORS.textSecondary },
+  error: { color: COLORS.error, textAlign: "center", marginTop: 12, fontSize: 13 },
 });

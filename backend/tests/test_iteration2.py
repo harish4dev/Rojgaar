@@ -21,7 +21,9 @@ def worker(s):
     phone = f"9{uuid.uuid4().int % 1000000000:09d}"
     r = s.post(f"{API}/auth/verify-otp", json={"phone": phone, "otp": "1234", "role": "worker"})
     assert r.status_code == 200
-    return r.json()["user"]
+    data = r.json()
+    s.headers["Authorization"] = f"Bearer {data['access_token']}"
+    return data["user"]
 
 
 # ---------- Worker gender/age fields ----------

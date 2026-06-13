@@ -1,9 +1,9 @@
 from typing import Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from database import db
-from schemas import Job, JobCreate
+from schemas import Job, JobCreate, JobHiringStatusUpdate
 from services.db_helpers import get_doc_or_404
 from services.jobs import build_jobs_query
 
@@ -41,12 +41,35 @@ async def get_job(job_id: str):
 
 @router.post("")
 async def create_job(payload: JobCreate):
-    job = Job(**payload.model_dump())
+    if payload.salary_min < 0 or payload.salary_max < 0:
+        raise HTTPException(status_code=400, detail="salary must be non-negative")
+    if payload.salary_max < payload.salary_min:
+        raise HTTPException(status_code=400, detail="salary_max must be >= salary_min")
+    if payload.age_min is not None and payload.age_max is not None and payload.age_max < payload.age_min:
+        raise HTTPException(status_code=400, detail="age_max must be >= age_min")
+    data = payload.model_dump()
+    if data.get("experience_band"):
+        data["experience"] = data["experience_band"]
+    job = Job(**data)
     await db.jobs.insert_one(job.model_dump())
     return job.model_dump()
 
 
 @router.delete("/{job_id}")
 async def delete_job(job_id: str):
-    await db.jobs.update_one({"id": job_id}, {"$set": {"active": False}})
+    await db.jobs.update_one({"id": job_id}, {"$set": {"active": False, "hiring_status": "stopped"}})
     return {"success": True}
+
+
+@router.patch("/{job_id}/hiring-status")
+async def update_hiring_status(job_id: str, payload: JobHiringStatusUpdate):
+    status = payload.hiring_status.strip().lower()
+    if status not in ("active", "stopped"):
+        raise HTTPException(status_code=400, detail="hiring_status must be active or stopped")
+    result = await db.jobs.update_one(
+        {"id": job_id},
+        {"$set": {"hiring_status": status, "active": status == "active"}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return await get_doc_or_404("jobs", job_id, "Job not found")

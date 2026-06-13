@@ -19,11 +19,12 @@
 }
 
 .dash-card {
-  background: #fff;
+  background: var(--surface);
   border-radius: 16px;
   padding: 20px;
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--border);
   min-width: 0;
+  box-shadow: var(--shadow-primary);
 }
 
 .dash-card--wide {
@@ -475,12 +476,13 @@
   margin-top: 16px;
   padding: 14px;
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--primary);
   color: #fff;
   font-size: 0.875rem;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: var(--shadow-primary);
 }
 
 .dash-submit:hover:not(:disabled) {

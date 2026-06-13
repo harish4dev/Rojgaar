@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import HTTPException
 
 from database import db
+from meta_catalog import is_valid_industry, is_valid_job_role, normalize_industry_key
 from schemas import CandidateCreate, PartnerCandidate, Worker, now_iso
 from services.twilio_verify import check_verification, send_verification
 
@@ -25,6 +26,11 @@ def validate_candidate_payload(payload: CandidateCreate) -> None:
     phone = payload.employee_number.strip()
     if not (phone.isdigit() and len(phone) == 10):
         raise HTTPException(status_code=400, detail="employee_number must be a 10-digit phone")
+    industry = normalize_industry_key(payload.industry)
+    if not is_valid_industry(industry):
+        raise HTTPException(status_code=400, detail="Invalid industry")
+    if not is_valid_job_role(industry, payload.skill):
+        raise HTTPException(status_code=400, detail="Invalid job role for selected industry")
 
 
 def _pending_key(partner_id: str, phone: str) -> dict[str, str]:
@@ -104,6 +110,7 @@ async def confirm_pending_registration(
         raise HTTPException(status_code=410, detail="OTP session expired. Request a new OTP.")
 
     payload = CandidateCreate(**pending["payload"])
+    industry = normalize_industry_key(payload.industry)
     candidate = PartnerCandidate(partner_id=partner_id, **payload.model_dump())
     await db.partner_candidates.insert_one(candidate.model_dump())
 
@@ -112,7 +119,10 @@ async def confirm_pending_registration(
         "gender": payload.gender,
         "age": payload.age,
         "city": payload.city,
+        "industries": [industry],
+        "industry_preference": industry,
         "skills": [payload.skill],
+        "preferred_job_title": payload.skill,
         "experience": payload.experience,
         "collar_type": payload.collar_type,
         "registered_by_partner_id": partner_id,

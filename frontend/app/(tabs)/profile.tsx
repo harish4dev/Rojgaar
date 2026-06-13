@@ -18,6 +18,8 @@ import { COLORS, RADIUS } from "@/src/constants/theme";
 import { api } from "@/src/api/client";
 import { session } from "@/src/store/session";
 import { t, LANGUAGES } from "@/src/i18n/translations";
+import ErrorBanner from "@/src/components/ErrorBanner";
+import { getApiErrorMessage, isAccountNotFoundError, isUnauthorizedError } from "@/src/utils/apiError";
 import ScreenContainer from "@/src/components/ScreenContainer";
 import { useResponsive } from "@/src/hooks/useResponsive";
 import { useTabBarInsets } from "@/src/hooks/useTabBarInsets";
@@ -51,13 +53,29 @@ export default function ProfileScreen() {
   const [worker, setWorker] = useState<any>(null);
   const [showLogout, setShowLogout] = useState(false);
   const [showLang, setShowLang] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const wid = await session.getWorkerId();
-    if (!wid) return;
-    const w = await api.getWorker(wid);
-    setWorker(w);
-  }, []);
+    const token = await session.getAccessToken();
+    if (!wid || !token) {
+      router.replace("/onboarding/language");
+      return;
+    }
+    try {
+      const w = await api.getWorker(wid);
+      setWorker(w);
+      setLoadError(null);
+    } catch (e) {
+      if (isUnauthorizedError(e) || isAccountNotFoundError(e)) {
+        await session.clear();
+        router.replace("/onboarding/phone");
+        return;
+      }
+      setWorker(null);
+      setLoadError(getApiErrorMessage(e, "Could not load your profile."));
+    }
+  }, [router]);
 
   useFocusEffect(
     useCallback(() => {
@@ -105,10 +123,16 @@ export default function ProfileScreen() {
   if (!worker) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loaderWrap}>
-          <ActivityIndicator color={COLORS.primary} size="large" />
-          <Text style={styles.loaderText}>Loading profile...</Text>
-        </View>
+        {loadError ? (
+          <View style={{ padding: 16 }}>
+            <ErrorBanner message={loadError} onRetry={load} />
+          </View>
+        ) : (
+          <View style={styles.loaderWrap}>
+            <ActivityIndicator color={COLORS.primary} size="large" />
+            <Text style={styles.loaderText}>Loading profile...</Text>
+          </View>
+        )}
       </SafeAreaView>
     );
   }
@@ -126,7 +150,7 @@ export default function ProfileScreen() {
         >
           {/* Hero */}
           <LinearGradient
-            colors={["#FF6B1A", "#FF8534", "#FFA04D"]}
+            colors={["#1565C0", "#1A5FCC", "#0D3D8A"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[styles.hero, { paddingHorizontal: horizontalPadding }]}

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
+import { Redirect, useFocusEffect } from "expo-router";
 import { COLORS, RADIUS } from "@/src/constants/theme";
 import PortalLayout, { StatCard } from "@/src/components/PortalLayout";
 import { api } from "@/src/api/client";
@@ -21,23 +21,9 @@ const NAV = [
   { key: "people", label: "People / Candidates", icon: "people" as const },
   { key: "network", label: "My Network", icon: "git-network" as const },
   { key: "matches", label: "Job Matches", icon: "briefcase" as const },
-  { key: "earnings", label: "Earnings", icon: "cash" as const },
   { key: "reports", label: "Reports", icon: "document-text" as const },
   { key: "messages", label: "Messages", icon: "chatbubbles" as const },
   { key: "settings", label: "Settings", icon: "settings" as const },
-];
-
-const SKILLS = [
-  { label: "Mason", icon: "construct" as const },
-  { label: "Helper", icon: "person" as const },
-  { label: "Painter", icon: "color-palette" as const },
-  { label: "Electrician", icon: "flash" as const },
-  { label: "Welder", icon: "flame" as const },
-  { label: "Plumber", icon: "water" as const },
-  { label: "Carpenter", icon: "hammer" as const },
-  { label: "Driver", icon: "car" as const },
-  { label: "Security", icon: "shield-checkmark" as const },
-  { label: "Other", icon: "ellipsis-horizontal" as const },
 ];
 
 const EXP = ["Fresher", "1-2 Years", "3-5 Years", "5+ Years"];
@@ -53,6 +39,9 @@ const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
 type AddStep = "details" | "otp";
 
 export default function PartnerPortal() {
+  if (!__DEV__) {
+    return <Redirect href="/(tabs)/home" />;
+  }
   const [active, setActive] = useState("dashboard");
   const [partner, setPartner] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
@@ -60,7 +49,10 @@ export default function PartnerPortal() {
 
   const [name, setName] = useState("");
   const [employeeNumber, setEmployeeNumber] = useState("");
-  const [skill, setSkill] = useState("Mason");
+  const [skill, setSkill] = useState("Tailor");
+  const [skillIndustry, setSkillIndustry] = useState("garments");
+  const [metaIndustries, setMetaIndustries] = useState<{ key: string; label: string }[]>([]);
+  const [jobTitlesByIndustry, setJobTitlesByIndustry] = useState<Record<string, string[]>>({});
   const [exp, setExp] = useState("1-2 Years");
   const [city, setCity] = useState("Bengaluru");
   const [gender, setGender] = useState("Male");
@@ -90,6 +82,22 @@ export default function PartnerPortal() {
     }, [load])
   );
 
+  useEffect(() => {
+    Promise.all([api.getIndustries(), api.getIndustryJobTitles()])
+      .then(([inds, titles]) => {
+        setMetaIndustries(inds);
+        setJobTitlesByIndustry(titles);
+        if (inds.length === 1) {
+          setSkillIndustry(inds[0].key);
+          const first = titles[inds[0].key]?.[0];
+          if (first) setSkill(first);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const availableRoles = jobTitlesByIndustry[skillIndustry] ?? [];
+
   const cleanedNumber = employeeNumber.replace(/\D/g, "");
   const ageNum = parseInt(age, 10);
   const detailsValid =
@@ -111,6 +119,7 @@ export default function PartnerPortal() {
   const buildPayload = () => ({
     name: name.trim(),
     employee_number: cleanedNumber,
+    industry: skillIndustry,
     skill,
     experience: exp,
     city: city.trim(),
@@ -164,16 +173,9 @@ export default function PartnerPortal() {
       <Text style={styles.h1}>Dashboard</Text>
 
       <View style={styles.statsRow}>
-        <StatCard testID="stat-people" icon="people" value={String(stats?.people_added ?? "—")} label="People Added" color="#FF6B1A" />
+        <StatCard testID="stat-people" icon="people" value={String(stats?.people_added ?? "—")} label="People Added" color={COLORS.primary} />
         <StatCard testID="stat-matches" icon="briefcase" value={String(stats?.job_matches ?? "—")} label="Job Matches" color="#3B82F6" />
         <StatCard testID="stat-placed" icon="checkmark-done" value={String(stats?.placed ?? "—")} label="Placed" color="#10B981" />
-        <StatCard
-          testID="stat-earnings"
-          icon="cash"
-          value={`₹${(stats?.total_earnings ?? 0).toLocaleString("en-IN")}`}
-          label="Total Earnings"
-          color="#A855F7"
-        />
       </View>
 
       <View style={styles.twoCol}>
@@ -288,19 +290,38 @@ export default function PartnerPortal() {
                 })}
               </View>
 
-              <Text style={styles.label}>Select Skill</Text>
+              <Text style={styles.label}>Industry</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {metaIndustries.map((ind) => (
+                  <TouchableOpacity
+                    key={ind.key}
+                    onPress={() => {
+                      setSkillIndustry(ind.key);
+                      const first = jobTitlesByIndustry[ind.key]?.[0];
+                      if (first) setSkill(first);
+                    }}
+                    style={[styles.chip, skillIndustry === ind.key && styles.chipActive]}
+                  >
+                    <Text style={[styles.chipText, skillIndustry === ind.key && { color: COLORS.primary }]}>
+                      {ind.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.label}>Job role</Text>
               <View style={styles.skillGrid}>
-                {SKILLS.map((s) => {
-                  const a = skill === s.label;
+                {availableRoles.map((role) => {
+                  const a = skill === role;
                   return (
                     <TouchableOpacity
-                      key={s.label}
-                      testID={`add-skill-${s.label}`}
-                      onPress={() => setSkill(s.label)}
+                      key={role}
+                      testID={`add-skill-${role}`}
+                      onPress={() => setSkill(role)}
                       style={[styles.skillTile, a && styles.skillTileActive]}
                     >
-                      <Ionicons name={s.icon} size={16} color={a ? COLORS.primary : COLORS.textSecondary} />
-                      <Text style={[styles.skillLabel, a && { color: COLORS.primary }]}>{s.label}</Text>
+                      <Ionicons name="briefcase" size={16} color={a ? COLORS.primary : COLORS.textSecondary} />
+                      <Text style={[styles.skillLabel, a && { color: COLORS.primary }]}>{role}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -340,6 +361,7 @@ export default function PartnerPortal() {
               >
                 <Text style={styles.ctaText}>{adding ? "Sending…" : "Send OTP to Employee"}</Text>
               </TouchableOpacity>
+              <Text style={styles.hint}>Bulk upload (CSV/XLSX) is available in the web partner portal.</Text>
             </>
           ) : (
             <>

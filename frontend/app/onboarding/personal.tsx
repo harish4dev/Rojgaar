@@ -33,7 +33,7 @@ export default function PersonalScreen() {
   const [saving, setSaving] = useState(false);
 
   const ageNum = parseInt(age, 10);
-  const valid = name.trim().length >= 2 && !!gender && !Number.isNaN(ageNum) && ageNum >= 18 && ageNum <= 70;
+  const valid = name.trim().length >= 2 && !Number.isNaN(ageNum) && ageNum >= 18 && ageNum <= 70;
 
   const labelFor = (k: string) => (k === "Male" ? t("male") : k === "Female" ? t("female") : t("other"));
 
@@ -43,7 +43,7 @@ export default function PersonalScreen() {
     try {
       const wid = await session.getWorkerId();
       if (wid) {
-        await api.updateWorker(wid, { name: name.trim(), gender, age: ageNum });
+        await api.updateWorker(wid, { name: name.trim(), gender: gender ?? null, age: ageNum });
       }
       router.push("/onboarding/city");
     } finally {

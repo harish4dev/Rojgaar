@@ -13,7 +13,7 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: "#9CA3AF",
+        tabBarInactiveTintColor: COLORS.textSecondary,
         tabBarHideOnKeyboard: true,
         tabBarLabelStyle: {
           fontSize: 11,
@@ -29,10 +29,10 @@ export default function TabsLayout() {
           borderTopColor: COLORS.borderLight,
           backgroundColor: COLORS.bgCard,
           elevation: 8,
-          shadowColor: "#000",
+          shadowColor: COLORS.primary,
           shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.06,
-          shadowRadius: 6,
+          shadowOpacity: 0.08,
+          shadowRadius: 8,
         },
         tabBarItemStyle: {
           paddingVertical: 2,

@@ -2,6 +2,7 @@ import { storage } from "@/src/utils/storage";
 import { setLang, type Lang } from "@/src/i18n/translations";
 
 const K_WORKER_ID = "rojgaar.worker_id";
+const K_ACCESS_TOKEN = "rojgaar.worker_token";
 const K_LANG = "rojgaar.lang";
 const K_ONBOARDED = "rojgaar.onboarded";
 
@@ -11,6 +12,13 @@ export const session = {
   },
   async setWorkerId(id: string) {
     await storage.setItem(K_WORKER_ID, id);
+  },
+  async getAccessToken(): Promise<string | null> {
+    const token = await storage.secureGet<string>(K_ACCESS_TOKEN, "");
+    return token || null;
+  },
+  async setAccessToken(token: string) {
+    await storage.secureSet(K_ACCESS_TOKEN, token);
   },
   async getLang(): Promise<Lang> {
     const v = (await storage.getItem<string>(K_LANG, "en")) || "en";
@@ -28,6 +36,7 @@ export const session = {
   },
   async clear() {
     await storage.removeItem(K_WORKER_ID);
+    await storage.secureRemove(K_ACCESS_TOKEN);
     await storage.removeItem(K_LANG);
     await storage.removeItem(K_ONBOARDED);
   },

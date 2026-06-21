@@ -1,0 +1,64 @@
+.logo__link {
+  text-decoration: none;
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo__img {
+  display: block;
+  height: auto;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.logo--sm .logo__img {
+  height: 32px;
+}
+
+.logo--md .logo__img {
+  height: 44px;
+}
+
+.logo--lg .logo__img {
+  height: 64px;
+}
+
+.logo--xl .logo__img {
+  height: 120px;
+}
+
+.logo__text {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.logo--sm .logo__text {
+  font-size: 1rem;
+}
+
+.logo--lg .logo__text {
+  font-size: 1.375rem;
+}
+
+.logo--xl .logo__text {
+  font-size: 1.75rem;
+}
+
+.logo--dark .logo__text {
+  color: #fff;
+}
+
+.logo--light .logo__text {
+  color: var(--text-primary);
+}
+
+.logo__accent {
+  color: var(--primary);
+}

@@ -1,30 +1,31 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ActivityIndicator, Platform, Text, TouchableOpacity, View, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { COLORS, RADIUS } from "@/src/constants/theme";
+import { COLORS } from "@/src/constants/theme";
 import PrimaryButton from "@/src/components/PrimaryButton";
 import ScreenHeader from "@/src/components/ScreenHeader";
+import OnboardingScreen from "@/src/components/OnboardingScreen";
+import OtpInput from "@/src/components/OtpInput";
+import AndroidSmsListener from "@/src/components/AndroidSmsListener";
 import { api } from "@/src/api/client";
 import { session } from "@/src/store/session";
 import { t } from "@/src/i18n/translations";
+import { DEV_OTP, OTP_LENGTH } from "@/src/constants/otp";
+import { getApiErrorMessage } from "@/src/utils/apiError";
+import { logAndroidAppHashForTwilio } from "@/src/hooks/useAndroidSmsOtp";
 
 export default function OtpScreen() {
   const router = useRouter();
-  const { phone } = useLocalSearchParams<{ phone: string }>();
-  const [digits, setDigits] = useState(["", "", "", ""]);
+  const { phone, devMode } = useLocalSearchParams<{ phone: string; devMode?: string }>();
+  const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [timer, setTimer] = useState(25);
-  const inputs = useRef<(TextInput | null)[]>([]);
+  const [isDevMode, setIsDevMode] = useState(devMode === "1");
+  const [listening, setListening] = useState(Platform.OS === "android");
+  const verifyingRef = useRef(false);
+
+  const valid = code.length === OTP_LENGTH;
 
   useEffect(() => {
     if (timer <= 0) return;
@@ -32,142 +33,145 @@ export default function OtpScreen() {
     return () => clearTimeout(id);
   }, [timer]);
 
-  const code = digits.join("");
-  const valid = code.length === 4;
+  useEffect(() => {
+    if (!isDevMode || !__DEV__) return;
+    setCode(DEV_OTP);
+  }, [isDevMode]);
 
-  const handleChange = (i: number, v: string) => {
-    const c = v.replace(/[^0-9]/g, "").slice(-1);
-    const next = [...digits];
-    next[i] = c;
-    setDigits(next);
-    if (c && i < 3) inputs.current[i + 1]?.focus();
-  };
+  useEffect(() => {
+    void logAndroidAppHashForTwilio();
+  }, []);
 
-  const handleKey = (i: number, key: string) => {
-    if (key === "Backspace" && !digits[i] && i > 0) {
-      inputs.current[i - 1]?.focus();
-    }
-  };
-
-  const handleVerify = async () => {
-    if (!valid) return;
+  const verify = async (otp: string) => {
+    if (otp.length !== OTP_LENGTH || verifyingRef.current) return;
+    verifyingRef.current = true;
+    setListening(false);
     try {
       setLoading(true);
       setError(null);
-      const res = await api.verifyOtp(phone as string, code, "worker");
+      const res = await api.verifyOtp(phone as string, otp, "worker");
       if (res?.user?.id) {
+        if (res.access_token) await session.setAccessToken(res.access_token);
         await session.setWorkerId(res.user.id);
-        // Persist the selected language to the worker profile.
         const lang = await session.getLang();
         try {
           await api.updateWorker(res.user.id, { language: lang });
         } catch {
-          // Non-fatal
+          /* non-fatal */
         }
-        if (res.is_new || !res.user.gender || !res.user.city) {
+        if (res.is_new || !res.user.name?.trim()) {
           router.replace("/onboarding/personal");
         } else {
           await session.setOnboarded(true);
           router.replace("/(tabs)/home");
         }
       }
-    } catch (e: any) {
-      setError("Invalid OTP. Try any 4 digit code.");
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, "Invalid or expired code. Try again."));
+      setCode("");
+      setListening(true);
     } finally {
       setLoading(false);
+      verifyingRef.current = false;
+    }
+  };
+
+  const handleAutoCode = (autoCode: string) => {
+    setCode(autoCode);
+    void verify(autoCode);
+  };
+
+  const handleCodeChange = (next: string) => {
+    setCode(next);
+    setError(null);
+    if (next.length === OTP_LENGTH) {
+      void verify(next);
     }
   };
 
   const handleResend = async () => {
     if (timer > 0) return;
     setTimer(25);
-    await api.sendOtp(phone as string, "worker");
+    setError(null);
+    setCode("");
+    setListening(true);
+    try {
+      const res = await api.sendOtp(phone as string, "worker");
+      if (res?.dev_mode && __DEV__) {
+        setIsDevMode(true);
+        setCode(DEV_OTP);
+      }
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, "Could not resend OTP. Please try again."));
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container} testID="otp-screen">
-      <ScreenHeader />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ flex: 1 }}
-      >
-        <View style={styles.content}>
-          <Text style={styles.title}>{t("enter_otp")}</Text>
-          <Text style={styles.subtitle}>
-            {t("otp_caption")}
-            {"\n"}
-            <Text style={styles.phoneText}>+91 {phone}</Text>
-          </Text>
-
-          <View style={styles.row}>
-            {digits.map((d, i) => (
-              <TextInput
-                key={i}
-                ref={(r) => {
-                  inputs.current[i] = r;
-                }}
-                testID={`otp-${i}`}
-                style={[styles.box, d ? styles.boxFilled : null]}
-                keyboardType="number-pad"
-                maxLength={1}
-                value={d}
-                onChangeText={(v) => handleChange(i, v)}
-                onKeyPress={({ nativeEvent }) => handleKey(i, nativeEvent.key)}
-                placeholderTextColor={COLORS.border}
-              />
-            ))}
+    <OnboardingScreen
+      testID="otp-screen"
+      header={<ScreenHeader />}
+      footer={
+        loading ? (
+          <View style={styles.verifying}>
+            <ActivityIndicator color={COLORS.primary} />
+            <Text style={styles.verifyingText}>Verifying…</Text>
           </View>
-
-          <View style={styles.resendRow}>
-            <Text style={styles.resendText}>{t("didnt_receive")} </Text>
-            <TouchableOpacity testID="otp-resend" onPress={handleResend} disabled={timer > 0}>
-              <Text style={[styles.resendCta, timer > 0 && { color: COLORS.textSecondary }]}>
-                {timer > 0 ? `${t("resend")} in 00:${String(timer).padStart(2, "0")}` : t("resend")}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {error && <Text style={styles.error}>{error}</Text>}
-
+        ) : (
           <PrimaryButton
             testID="otp-verify"
             title={t("continue")}
-            onPress={handleVerify}
+            onPress={() => verify(code)}
             disabled={!valid}
-            loading={loading}
-            style={{ marginTop: 32 }}
           />
+        )
+      }
+    >
+      {Platform.OS === "android" ? <AndroidSmsListener onCode={handleAutoCode} /> : null}
+      <Text style={styles.title}>{t("enter_otp")}</Text>
+      <Text style={styles.subtitle}>
+        {t("otp_caption")}
+        {"\n"}
+        <Text style={styles.phoneText}>+91 {phone}</Text>
+      </Text>
 
-          <Text style={styles.hint}>Mock OTP: any 4 digits will work.</Text>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      <OtpInput
+        value={code}
+        onChange={handleCodeChange}
+        onComplete={(c) => void verify(c)}
+        error={Boolean(error)}
+      />
+
+      {listening && Platform.OS === "android" && !loading ? (
+        <Text style={styles.hint}>Waiting for SMS — code will fill automatically</Text>
+      ) : null}
+
+      {isDevMode && __DEV__ ? (
+        <Text style={styles.hint}>Development mode: OTP is {DEV_OTP}</Text>
+      ) : null}
+
+      <View style={styles.resendRow}>
+        <Text style={styles.resendText}>{t("didnt_receive")} </Text>
+        <TouchableOpacity testID="otp-resend" onPress={handleResend} disabled={timer > 0 || loading}>
+          <Text style={[styles.resendCta, timer > 0 && { color: COLORS.textSecondary }]}>
+            {timer > 0 ? `${t("resend")} in 00:${String(timer).padStart(2, "0")}` : t("resend")}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+    </OnboardingScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFF" },
-  content: { padding: 24, flex: 1 },
-  title: { fontSize: 22, fontWeight: "700", color: COLORS.textPrimary, textAlign: "center", marginTop: 24 },
-  subtitle: { fontSize: 14, color: COLORS.textSecondary, textAlign: "center", marginTop: 8 },
+  title: { fontSize: 22, fontWeight: "700", color: COLORS.textPrimary, textAlign: "center", marginTop: 8 },
+  subtitle: { fontSize: 14, color: COLORS.textSecondary, textAlign: "center", marginTop: 8, lineHeight: 20 },
   phoneText: { color: COLORS.textPrimary, fontWeight: "600" },
-  row: { flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 32 },
-  box: {
-    width: 60,
-    height: 60,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1.5,
-    borderColor: COLORS.borderLight,
-    textAlign: "center",
-    fontSize: 24,
-    fontWeight: "700",
-    color: COLORS.textPrimary,
-    backgroundColor: "#FFF",
-  },
-  boxFilled: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
-  resendRow: { flexDirection: "row", justifyContent: "center", marginTop: 20 },
+  resendRow: { flexDirection: "row", justifyContent: "center", marginTop: 24, flexWrap: "wrap" },
   resendText: { color: COLORS.textSecondary, fontSize: 13 },
   resendCta: { color: COLORS.primary, fontSize: 13, fontWeight: "700" },
-  error: { color: COLORS.error, textAlign: "center", marginTop: 12 },
-  hint: { textAlign: "center", color: COLORS.textSecondary, marginTop: 16, fontSize: 12, fontStyle: "italic" },
+  error: { color: COLORS.error, textAlign: "center", marginTop: 16, fontSize: 13 },
+  hint: { textAlign: "center", color: COLORS.textSecondary, marginTop: 14, fontSize: 12 },
+  verifying: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 8 },
+  verifyingText: { fontSize: 15, fontWeight: "600", color: COLORS.primary },
 });

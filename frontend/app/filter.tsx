@@ -1,15 +1,24 @@
-import { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { useEffect, useState } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { COLORS, RADIUS } from "@/src/constants/theme";
 import PrimaryButton from "@/src/components/PrimaryButton";
 import ScreenHeader from "@/src/components/ScreenHeader";
+import ScreenContainer from "@/src/components/ScreenContainer";
 import { api } from "@/src/api/client";
+import { session } from "@/src/store/session";
+import { jobFilters } from "@/src/store/jobFilters";
 import { t } from "@/src/i18n/translations";
+import { getApiErrorMessage } from "@/src/utils/apiError";
+import { useResponsive } from "@/src/hooks/useResponsive";
 
 const JOB_TYPES = ["Full Time", "Part Time", "Daily Wage"];
-const INDUSTRIES = ["construction", "factory", "delivery", "electrician", "security"];
+interface Industry {
+  key: string;
+  label: string;
+}
+
 const EXP = ["Fresher", "1-2 Years", "3-5 Years", "5+ Years"];
 const SALARY_BUCKETS = [
   { label: "₹10k - ₹15k", min: 10000, max: 15000 },
@@ -20,14 +29,35 @@ const SALARY_BUCKETS = [
 
 export default function FilterScreen() {
   const router = useRouter();
+  const { horizontalPadding } = useResponsive();
   const [jobType, setJobType] = useState<string | null>(null);
   const [industry, setIndustry] = useState<string | null>(null);
+  const [industries, setIndustries] = useState<Industry[]>([]);
   const [exp, setExp] = useState<string | null>(null);
   const [salary, setSalary] = useState<typeof SALARY_BUCKETS[0] | null>(null);
   const [count, setCount] = useState<number | null>(null);
 
-  const apply = async () => {
-    const params: any = {};
+  useEffect(() => {
+    api
+      .getIndustries()
+      .then((data) => setIndustries(data))
+      .catch(() => setIndustries([]));
+    jobFilters.get().then((saved) => {
+      if (!saved) return;
+      if (saved.job_type) setJobType(saved.job_type);
+      if (saved.industry) setIndustry(saved.industry);
+      if (saved.experience) setExp(saved.experience);
+      if (saved.salary_min != null && saved.salary_max != null) {
+        const bucket = SALARY_BUCKETS.find(
+          (b) => b.min === saved.salary_min && b.max === saved.salary_max
+        );
+        if (bucket) setSalary(bucket);
+      }
+    });
+  }, []);
+
+  const buildParams = () => {
+    const params: Record<string, string | number> = {};
     if (jobType) params.job_type = jobType;
     if (industry) params.industry = industry;
     if (exp) params.experience = exp;
@@ -35,21 +65,39 @@ export default function FilterScreen() {
       params.salary_min = salary.min;
       params.salary_max = salary.max;
     }
-    const jobs = await api.listJobs(params);
-    setCount(jobs.length);
-    setTimeout(() => router.back(), 600);
+    return params;
   };
 
-  const reset = () => {
+  const apply = async () => {
+    const wid = await session.getWorkerId();
+    const token = await session.getAccessToken();
+    if (!wid || !token) {
+      router.replace("/onboarding/language");
+      return;
+    }
+    const params = buildParams();
+    try {
+      const jobs = await api.getWorkerRecommendations(wid, 100, params);
+      await jobFilters.set(Object.keys(params).length ? params : null);
+      setCount(jobs.length);
+      setTimeout(() => router.back(), 450);
+    } catch (e) {
+      Alert.alert("Error", getApiErrorMessage(e, "Could not apply filters."));
+    }
+  };
+
+  const reset = async () => {
     setJobType(null);
     setIndustry(null);
     setExp(null);
     setSalary(null);
     setCount(null);
+    await jobFilters.clear();
   };
 
   return (
     <SafeAreaView style={styles.container} testID="filter-screen">
+      <ScreenContainer>
       <ScreenHeader
         title={t("filter_jobs")}
         right={
@@ -58,7 +106,7 @@ export default function FilterScreen() {
           </TouchableOpacity>
         }
       />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingHorizontal: horizontalPadding }]}>
         <Section title={t("job_type")}>
           <Row>
             {JOB_TYPES.map((j) => (
@@ -68,8 +116,13 @@ export default function FilterScreen() {
         </Section>
         <Section title={t("industry")}>
           <Row>
-            {INDUSTRIES.map((i) => (
-              <Chip key={i} label={i} active={industry === i} onPress={() => setIndustry(industry === i ? null : i)} />
+            {industries.map((i) => (
+              <Chip
+                key={i.key}
+                label={i.label}
+                active={industry === i.key}
+                onPress={() => setIndustry(industry === i.key ? null : i.key)}
+              />
             ))}
           </Row>
         </Section>
@@ -93,13 +146,15 @@ export default function FilterScreen() {
           </Row>
         </Section>
       </ScrollView>
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingHorizontal: horizontalPadding }]}>
+        {count !== null ? <Text style={styles.resultCount}>{count} matching jobs</Text> : null}
         <PrimaryButton
           testID="show-jobs"
           title={count !== null ? `${t("show_jobs")} (${count})` : t("show_jobs")}
           onPress={apply}
         />
       </View>
+      </ScreenContainer>
     </SafeAreaView>
   );
 }
@@ -146,6 +201,13 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 13, color: COLORS.textPrimary, fontWeight: "600", textTransform: "capitalize" },
   chipTextActive: { color: COLORS.primary },
   resetText: { color: COLORS.primary, fontWeight: "700" },
+  resultCount: {
+    textAlign: "center",
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginBottom: 8,
+    fontWeight: "600",
+  },
   footer: {
     position: "absolute",
     bottom: 0,

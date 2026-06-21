@@ -22,7 +22,7 @@ def test_health(s):
     assert r.json()["status"] == "ok"
 
 
-# ---------- Auth (mocked OTP) ----------
+# ---------- Auth (Twilio Verify or dev OTP when API has OTP_DEV_MODE / no Twilio) ----------
 class TestAuth:
     def test_send_otp_worker(self, s):
         r = s.post(f"{API}/auth/send-otp", json={"phone": "7777777777", "role": "worker"})
@@ -43,43 +43,85 @@ class TestAuth:
         data = r.json()
         assert data["success"] is True
         assert "user" in data and data["user"]["phone"] == phone
+        assert "access_token" in data and data["access_token"]
         assert "_id" not in data["user"]
         pytest.worker_phone = phone
         pytest.worker_id = data["user"]["id"]
+        pytest.worker_token = data["access_token"]
+        s.headers["Authorization"] = f"Bearer {data['access_token']}"
 
     def test_verify_otp_business_demo(self, s):
         r = s.post(f"{API}/auth/verify-otp", json={"phone": "9999999999", "otp": "0000", "role": "business"})
         assert r.status_code == 200
-        u = r.json()["user"]
+        data = r.json()
+        u = data["user"]
         assert u["company"] == "Sharma Construction"
+        assert data["needs_profile"] is False
         assert "_id" not in u
         pytest.business_id = u["id"]
 
     def test_verify_otp_partner_demo(self, s):
         r = s.post(f"{API}/auth/verify-otp", json={"phone": "8888888888", "otp": "9999", "role": "partner"})
         assert r.status_code == 200
-        u = r.json()["user"]
+        data = r.json()
+        u = data["user"]
+        assert data["needs_profile"] is False
         assert "_id" not in u
         pytest.partner_id = u["id"]
 
-    @pytest.mark.parametrize("bad_otp", ["123", "12345", "abcd", ""])
-    def test_verify_otp_rejects_non_4_digit(self, s, bad_otp):
+    def test_verify_otp_new_business_needs_profile(self, s):
+        phone = f"8{uuid.uuid4().int % 1000000000:09d}"
+        r = s.post(f"{API}/auth/verify-otp", json={"phone": phone, "otp": "1234", "role": "business"})
+        assert r.status_code == 200
+        data = r.json()
+        assert data["is_new"] is True
+        assert data["needs_profile"] is True
+        biz_id = data["user"]["id"]
+        r2 = s.patch(
+            f"{API}/businesses/{biz_id}",
+            json={"name": "TEST Biz Owner", "company": "TEST Company", "city": "Chennai", "industry": "garments"},
+        )
+        assert r2.status_code == 200
+        assert r2.json()["profile_complete"] is True
+        r3 = s.post(f"{API}/auth/verify-otp", json={"phone": phone, "otp": "1234", "role": "business"})
+        assert r3.json()["needs_profile"] is False
+
+    @pytest.mark.parametrize("bad_otp", ["12", "12345", "123456", "abcd", ""])
+    def test_verify_otp_rejects_invalid_code(self, s, bad_otp):
         r = s.post(f"{API}/auth/verify-otp", json={"phone": "7777777777", "otp": bad_otp, "role": "worker"})
         assert r.status_code == 400
 
 
 # ---------- Jobs ----------
 class TestJobs:
-    def test_list_jobs_has_11_and_test_job(self, s):
+    def test_create_job(self, s):
+        payload = {
+            "title": "Test Job - Carpenter",
+            "company": "QA Co",
+            "industry": "construction",
+            "city": "Bengaluru",
+            "salary_min": 15000,
+            "salary_max": 20000,
+            "requirements": ["Carpenter"],
+            "experience_band": "1-2 Years",
+            "job_type": "Full Time",
+        }
+        r = s.post(f"{API}/jobs", json=payload)
+        assert r.status_code == 200
+        job = r.json()
+        assert job["title"] == "Test Job - Carpenter"
+        pytest.test_job_id = job["id"]
+        pytest.created_job_id = job["id"]
+        g = s.get(f"{API}/jobs/{job['id']}")
+        assert g.status_code == 200 and g.json()["title"] == "Test Job - Carpenter"
+
+    def test_list_jobs(self, s):
         r = s.get(f"{API}/jobs")
         assert r.status_code == 200
         jobs = r.json()
-        assert len(jobs) >= 11
-        titles = [j["title"] for j in jobs]
-        assert "Test Job - Carpenter" in titles
+        assert isinstance(jobs, list)
         for j in jobs:
             assert "_id" not in j
-        pytest.test_job_id = next(j["id"] for j in jobs if j["title"] == "Test Job - Carpenter")
 
     def test_filter_by_city(self, s):
         r = s.get(f"{API}/jobs", params={"city": "Bengaluru"})
@@ -114,23 +156,15 @@ class TestJobs:
         r = s.get(f"{API}/jobs/nonexistent-id")
         assert r.status_code == 404
 
-    def test_create_job(self, s):
-        payload = {
-            "title": "TEST_QA Carpenter",
-            "company": "QA Co",
-            "industry": "construction",
-            "city": "Bengaluru",
-            "salary_min": 15000,
-            "salary_max": 20000,
-        }
-        r = s.post(f"{API}/jobs", json=payload)
+    def test_stop_hiring_blocks_new_applications(self, s):
+        r = s.patch(f"{API}/jobs/{pytest.created_job_id}/hiring-status", json={"hiring_status": "stopped"})
         assert r.status_code == 200
-        job = r.json()
-        assert job["title"] == "TEST_QA Carpenter"
-        pytest.created_job_id = job["id"]
-        # verify GET
-        g = s.get(f"{API}/jobs/{job['id']}")
-        assert g.status_code == 200 and g.json()["title"] == "TEST_QA Carpenter"
+        assert r.json()["hiring_status"] == "stopped"
+        block = s.post(
+            f"{API}/applications",
+            json={"worker_id": pytest.worker_id, "job_id": pytest.created_job_id},
+        )
+        assert block.status_code == 400
 
 
 # ---------- Workers ----------
@@ -212,10 +246,30 @@ class TestBusiness:
         r = s.get(f"{API}/businesses/{pytest.business_id}/jobs")
         assert r.status_code == 200
         jobs = r.json()
-        # Demo business has Sharma Construction jobs (at least 1: Mason)
-        assert len(jobs) >= 1
+        assert isinstance(jobs, list)
         for j in jobs:
             assert "applications_count" in j
+
+    def test_business_applications_with_worker(self, s):
+        r = s.get(f"{API}/businesses/{pytest.business_id}/applications")
+        assert r.status_code == 200
+        apps = r.json()
+        assert isinstance(apps, list)
+        if apps:
+            app = apps[0]
+            assert "worker" in app
+            assert "job" in app
+            assert "worker_id" in app
+            assert "_id" not in app
+
+    def test_update_application_status(self, s):
+        apps = s.get(f"{API}/businesses/{pytest.business_id}/applications").json()
+        if not apps:
+            pytest.skip("No applications to test")
+        app_id = apps[0]["id"]
+        r = s.patch(f"{API}/applications/{app_id}", json={"status": "Accepted"})
+        assert r.status_code == 200
+        assert r.json()["status"] == "Accepted"
 
 
 # ---------- Partner ----------
@@ -238,11 +292,38 @@ class TestPartner:
         for nm in ("Mahesh Kumar", "Suresh R", "Raju P", "Prakash M"):
             assert nm in names
 
-    def test_add_partner_candidate(self, s):
-        payload = {"name": "TEST_Candidate", "skill": "Mason", "experience": "Fresher", "city": "Bengaluru"}
-        r = s.post(f"{API}/partners/{pytest.partner_id}/candidates", json=payload)
+    def test_add_partner_candidate_with_otp(self, s):
+        payload = {
+            "name": "TEST_Candidate",
+            "employee_number": "9876500099",
+            "skill": "Mason",
+            "experience": "Fresher",
+            "city": "Bengaluru",
+            "gender": "Male",
+            "age": 25,
+            "collar_type": "Blue Collar",
+        }
+        r = s.post(f"{API}/partners/{pytest.partner_id}/candidates/request-otp", json=payload)
         assert r.status_code == 200
-        assert r.json()["name"] == "TEST_Candidate"
+        assert r.json()["success"] is True
+        r2 = s.post(
+            f"{API}/partners/{pytest.partner_id}/candidates/confirm",
+            json={"employee_number": "9876500099", "otp": "1234"},
+        )
+        assert r2.status_code == 200
+        assert r2.json()["candidate"]["name"] == "TEST_Candidate"
+        assert r2.json()["candidate"]["gender"] == "Male"
+        assert r2.json()["candidate"]["collar_type"] == "Blue Collar"
+
+    def test_partner_bulk_candidate_upload_csv(self, s):
+        csv_text = (
+            "name,employee_number,skill,experience,city,gender,age,collar_type\n"
+            "Bulk One,9876500101,Mason,Fresher,Bengaluru,Male,26,Gray Collar\n"
+        )
+        files = {"file": ("bulk_candidates.csv", csv_text, "text/csv")}
+        r = requests.post(f"{API}/partners/{pytest.partner_id}/bulk/candidates", files=files)
+        assert r.status_code == 200
+        assert r.json()["created"] >= 1
 
 
 # ---------- Meta ----------
@@ -255,11 +336,43 @@ class TestMeta:
     def test_industries(self, s):
         r = s.get(f"{API}/meta/industries")
         keys = [i["key"] for i in r.json()]
-        for k in ("construction", "factory", "delivery", "driver"):
-            assert k in keys
+        assert "garments" in keys
 
     def test_skills(self, s):
         r = s.get(f"{API}/meta/skills")
         skills = r.json()
-        for sk in ("Mason", "Carpenter", "Electrician", "Plumber"):
+        for sk in ("Tailor", "Helper", "Cutting Master"):
             assert sk in skills
+
+    def test_industry_job_titles(self, s):
+        r = s.get(f"{API}/meta/industry-job-titles")
+        assert r.status_code == 200
+        payload = r.json()
+        assert "garments" in payload
+        assert "Tailor" in payload["garments"]
+
+    def test_grey_collar_skills(self, s):
+        r = s.get(f"{API}/meta/grey-collar-skills")
+        assert r.status_code == 200
+        payload = r.json()
+        assert "garments" in payload
+        assert len(payload["garments"]) > 0
+
+
+class TestRecommendations:
+    def test_worker_recommendations(self, s):
+        r = s.get(f"{API}/recommendations/workers/{pytest.worker_id}/jobs")
+        assert r.status_code == 200
+        jobs = r.json()
+        assert isinstance(jobs, list)
+        if jobs:
+            assert "match_score" in jobs[0]
+
+    def test_job_candidate_ranking(self, s):
+        r = s.get(f"{API}/recommendations/jobs/{pytest.test_job_id}/candidates")
+        assert r.status_code == 200
+        ranks = r.json()
+        assert isinstance(ranks, list)
+        if ranks:
+            assert "worker" in ranks[0]
+            assert "match_score" in ranks[0]

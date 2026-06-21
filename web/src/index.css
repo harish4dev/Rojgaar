@@ -1,0 +1,59 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --primary: #1565c0;
+  --primary-hover: #0d3d8a;
+  --primary-dark: #0d3d8a;
+  --primary-light: #e8f0fe;
+  --accent: #4a90d9;
+  --bg-app: #ffffff;
+  --surface: #f5f8ff;
+  --sidebar-bg: #0a1a3a;
+  --sidebar-hover: #0d3d8a;
+  --text-primary: #0a1a3a;
+  --text-secondary: #4a5568;
+  --border: #d0def5;
+  --border-light: #e8f0fe;
+  --success: #2db67d;
+  --success-bg: #d1fae5;
+  --warning: #f59e0b;
+  --warning-bg: #fef3c7;
+  --error: #ef4444;
+  --error-bg: #fee2e2;
+  --shadow-primary: 0 2px 12px rgba(21, 101, 192, 0.12);
+
+  --font-display: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  font-family: var(--font-display);
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--text-primary);
+  background: var(--bg-app);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}

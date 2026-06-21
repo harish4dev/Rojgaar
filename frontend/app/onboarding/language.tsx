@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { COLORS, RADIUS } from "@/src/constants/theme";
 import { LANGUAGES, COMING_SOON_LANGUAGES, type Lang } from "@/src/i18n/translations";
 import { session } from "@/src/store/session";
 import PrimaryButton from "@/src/components/PrimaryButton";
+import OnboardingScreen from "@/src/components/OnboardingScreen";
+import BrandLogo from "@/src/components/BrandLogo";
 import { t } from "@/src/i18n/translations";
 
 export default function LanguageScreen() {
@@ -23,70 +24,69 @@ export default function LanguageScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} testID="language-screen">
-      <ScrollView contentContainerStyle={styles.scroll}>
+    <OnboardingScreen
+      testID="language-screen"
+      footer={<PrimaryButton testID="lang-continue" title={t("continue")} onPress={handleContinue} />}
+    >
+      <View style={styles.hero}>
+        <BrandLogo size={72} />
         <Text style={styles.title}>{t("choose_language")}</Text>
         <Text style={styles.subtitle}>{t("change_later")}</Text>
+      </View>
 
-        {LANGUAGES.map((lang) => {
-          const active = selected === lang.code;
-          return (
-            <TouchableOpacity
-              key={lang.code}
-              testID={`lang-${lang.code}`}
-              activeOpacity={0.85}
-              onPress={() => setSelected(lang.code)}
-              style={[styles.row, active && styles.rowActive]}
-            >
-              <View style={styles.iconBox}>
-                <Ionicons name="language" size={20} color={COLORS.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.langLabel}>{lang.label}</Text>
-                <Text style={styles.langNative}>{lang.native}</Text>
-              </View>
-              <View style={[styles.radio, active && styles.radioActive]}>
-                {active && <Ionicons name="checkmark" size={14} color="#FFF" />}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-
-        <Text style={styles.sectionTag}>{t("more_languages")}</Text>
-        {COMING_SOON_LANGUAGES.map((lang) => (
+      {LANGUAGES.map((lang) => {
+        const active = selected === lang.code;
+        return (
           <TouchableOpacity
             key={lang.code}
             testID={`lang-${lang.code}`}
-            onPress={() => showComingSoon(lang.label)}
-            activeOpacity={0.7}
-            style={[styles.row, styles.rowDisabled]}
+            activeOpacity={0.85}
+            onPress={() => setSelected(lang.code)}
+            style={[styles.row, active && styles.rowActive]}
           >
             <View style={styles.iconBox}>
-              <Ionicons name="language" size={20} color={COLORS.textSecondary} />
+              <Ionicons name="language" size={20} color={COLORS.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.langLabel, { color: COLORS.textSecondary }]}>{lang.label}</Text>
+              <Text style={styles.langLabel}>{lang.label}</Text>
               <Text style={styles.langNative}>{lang.native}</Text>
             </View>
-            <View style={styles.comingSoonBadge}>
-              <Text style={styles.comingSoonText}>{t("coming_soon")}</Text>
+            <View style={[styles.radio, active && styles.radioActive]}>
+              {active && <Ionicons name="checkmark" size={14} color="#FFF" />}
             </View>
           </TouchableOpacity>
-        ))}
-      </ScrollView>
+        );
+      })}
 
-      <View style={styles.footer}>
-        <PrimaryButton testID="lang-continue" title={t("continue")} onPress={handleContinue} />
-      </View>
-    </SafeAreaView>
+      <Text style={styles.sectionTag}>{t("more_languages")}</Text>
+      {COMING_SOON_LANGUAGES.map((lang) => (
+        <TouchableOpacity
+          key={lang.code}
+          testID={`lang-${lang.code}`}
+          onPress={() => showComingSoon(lang.label)}
+          activeOpacity={0.7}
+          style={[styles.row, styles.rowDisabled]}
+        >
+          <View style={styles.iconBox}>
+            <Ionicons name="language" size={20} color={COLORS.textSecondary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.langLabel, { color: COLORS.textSecondary }]}>{lang.label}</Text>
+            <Text style={styles.langNative}>{lang.native}</Text>
+          </View>
+          <View style={styles.comingSoonBadge}>
+            <Text style={styles.comingSoonText}>{t("coming_soon")}</Text>
+          </View>
+        </TouchableOpacity>
+      ))}
+    </OnboardingScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFF" },
-  scroll: { padding: 24, paddingBottom: 120 },
-  title: { fontSize: 24, fontWeight: "700", color: COLORS.textPrimary, textAlign: "center" },
-  subtitle: { fontSize: 13, color: COLORS.textSecondary, textAlign: "center", marginTop: 6, marginBottom: 24 },
+  hero: { alignItems: "center", marginBottom: 20 },
+  title: { fontSize: 24, fontWeight: "700", color: COLORS.textPrimary, textAlign: "center", marginTop: 16 },
+  subtitle: { fontSize: 13, color: COLORS.textSecondary, textAlign: "center", marginTop: 6 },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -128,14 +128,4 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
   },
   comingSoonText: { fontSize: 11, color: COLORS.warning, fontWeight: "600" },
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 24,
-    backgroundColor: "#FFF",
-    borderTopWidth: 1,
-    borderTopColor: COLORS.borderLight,
-  },
 });

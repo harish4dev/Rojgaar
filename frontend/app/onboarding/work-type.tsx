@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { COLORS, RADIUS } from "@/src/constants/theme";
 import PrimaryButton from "@/src/components/PrimaryButton";
 import ScreenHeader from "@/src/components/ScreenHeader";
+import OnboardingScreen from "@/src/components/OnboardingScreen";
 import { api } from "@/src/api/client";
 import { session } from "@/src/store/session";
 import { t } from "@/src/i18n/translations";
@@ -35,57 +35,54 @@ export default function WorkTypeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} testID="work-type-screen">
-      <ScreenHeader title="" />
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>{t("what_kind")}</Text>
-        <Text style={styles.subtitle}>Optional</Text>
-        <View style={{ gap: 12, marginTop: 24 }}>
-          {options.map((o) => {
-            const active = type === o.key;
-            return (
-              <TouchableOpacity
-                key={o.key}
-                testID={`worktype-${o.key}`}
-                activeOpacity={0.85}
-                onPress={() => setType(o.key)}
-                style={[styles.row, active && styles.rowActive]}
-              >
-                <View style={styles.iconBox}>
-                  <Ionicons name={o.icon as any} size={22} color={COLORS.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.rowTitle}>{o.title}</Text>
-                  <Text style={styles.rowDesc}>{o.desc}</Text>
-                </View>
-                <View style={[styles.radio, active && styles.radioActive]}>
-                  {active && <Ionicons name="checkmark" size={14} color="#FFF" />}
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </ScrollView>
-      <View style={styles.footer}>
-        <TouchableOpacity onPress={() => finish(false)} style={styles.skipBtn}>
-          <Text style={styles.skipText}>Skip for now</Text>
-        </TouchableOpacity>
+    <OnboardingScreen
+      testID="work-type-screen"
+      header={<ScreenHeader title="" />}
+      skipLabel="Skip for now"
+      onSkip={() => finish(false)}
+      footer={
         <PrimaryButton
           testID="worktype-save"
           title={t("save_continue")}
           onPress={() => finish(true)}
           loading={saving}
         />
+      }
+    >
+      <Text style={styles.title}>{t("what_kind")}</Text>
+      <Text style={styles.subtitle}>Optional</Text>
+      <View style={{ gap: 12, marginTop: 20 }}>
+        {options.map((o) => {
+          const active = type === o.key;
+          return (
+            <TouchableOpacity
+              key={o.key}
+              testID={`worktype-${o.key}`}
+              activeOpacity={0.85}
+              onPress={() => setType(o.key)}
+              style={[styles.row, active && styles.rowActive]}
+            >
+              <View style={styles.iconBox}>
+                <Ionicons name={o.icon as any} size={22} color={COLORS.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowTitle}>{o.title}</Text>
+                <Text style={styles.rowDesc}>{o.desc}</Text>
+              </View>
+              <View style={[styles.radio, active && styles.radioActive]}>
+                {active && <Ionicons name="checkmark" size={14} color="#FFF" />}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
       </View>
-    </SafeAreaView>
+    </OnboardingScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFF" },
-  scroll: { padding: 24, paddingBottom: 140 },
   title: { fontSize: 22, fontWeight: "700", color: COLORS.textPrimary, textAlign: "center" },
-  subtitle: { fontSize: 13, color: COLORS.textSecondary, textAlign: "center", marginTop: 6, marginBottom: 8 },
+  subtitle: { fontSize: 13, color: COLORS.textSecondary, textAlign: "center", marginTop: 6 },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -117,17 +114,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   radioActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
-    backgroundColor: "#FFF",
-    borderTopWidth: 1,
-    borderTopColor: COLORS.borderLight,
-    gap: 8,
-  },
-  skipBtn: { alignItems: "center", paddingVertical: 4 },
-  skipText: { fontSize: 14, fontWeight: "600", color: COLORS.textSecondary },
 });

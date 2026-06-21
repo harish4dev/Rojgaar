@@ -4,6 +4,7 @@ from database import db
 from services.db_helpers import get_doc_or_404
 from services.jobs import attach_contact_phones, build_jobs_query
 from services.matching import (
+    is_browse_recommendation,
     is_strong_recommendation,
     is_worker_eligible_for_job,
     passes_relevance_filter,
@@ -13,6 +14,29 @@ from services.matching import (
 from dependencies.worker_auth import require_worker_id
 
 router = APIRouter(prefix="/recommendations", tags=["recommendations"])
+
+
+def _score_jobs(worker: dict, jobs: list[dict], trend_counts: dict[str, int]) -> list[dict]:
+    scored: list[dict] = []
+    for job in jobs:
+        if not passes_relevance_filter(worker, job):
+            continue
+        if not is_worker_eligible_for_job(worker, job):
+            continue
+        match = score_worker_for_job(worker, job)
+        trend_bonus = min(10, trend_counts.get((job.get("industry") or "").strip().lower(), 0) * 2)
+        final_score = min(100, match["score"] + trend_bonus)
+        reasons = match["reasons"] + (["hiring_trend_match"] if trend_bonus else [])
+        scored.append(
+            {
+                **job,
+                "match_score": final_score,
+                "match_reasons": reasons,
+                "recommended": is_strong_recommendation(final_score, reasons),
+            }
+        )
+    scored.sort(key=lambda x: (-x["match_score"], x.get("created_at", "")))
+    return scored
 
 
 @router.get("/workers/{worker_id}/jobs")
@@ -49,28 +73,21 @@ async def recommend_jobs_for_worker(
         query["id"] = {"$nin": list(previous_job_ids)}
 
     jobs = await db.jobs.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
-    scored = []
-    for job in jobs:
-        if not passes_relevance_filter(worker, job):
-            continue
-        if not is_worker_eligible_for_job(worker, job):
-            continue
-        match = score_worker_for_job(worker, job)
-        trend_bonus = min(10, trend_counts.get((job.get("industry") or "").strip().lower(), 0) * 2)
-        final_score = min(100, match["score"] + trend_bonus)
-        reasons = match["reasons"] + (["hiring_trend_match"] if trend_bonus else [])
-        if not is_strong_recommendation(final_score, reasons):
-            continue
-        scored.append(
-            {
-                **job,
-                "match_score": final_score,
-                "match_reasons": reasons,
-            }
-        )
+    scored = _score_jobs(worker, jobs, trend_counts)
+    cap = max(1, min(limit, 100))
 
-    scored.sort(key=lambda x: (-x["match_score"], x.get("created_at", "")), reverse=True)
-    result = scored[: max(1, min(limit, 100))]
+    strong = [j for j in scored if j.get("recommended")]
+    if len(strong) >= cap // 2:
+        result = strong[:cap]
+    else:
+        seen = {j["id"] for j in strong}
+        browse = [
+            j
+            for j in scored
+            if j["id"] not in seen and is_browse_recommendation(j["match_score"], j["match_reasons"])
+        ]
+        result = (strong + browse)[:cap]
+
     return await attach_contact_phones(result)
 
 
@@ -97,7 +114,5 @@ async def rank_candidates_for_job(job_id: str, limit: int = 50):
                 "match_reasons": match["reasons"],
             }
         )
-    ranked.sort(
-        key=lambda x: (-x["match_score"], -(x["worker"].get("profile_strength") or 0))
-    )
+    ranked.sort(key=lambda x: (-x["match_score"], -(x["worker"].get("profile_strength") or 0)))
     return ranked[: max(1, min(limit, 200))]

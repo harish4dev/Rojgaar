@@ -50,9 +50,10 @@ interface Job {
   image_url?: string | null;
   contact_phone?: string | null;
   match_score?: number;
+  recommended?: boolean;
 }
 
-const RECOMMENDED_LIMIT = 10;
+const RECOMMENDED_LIMIT = 8;
 const MATCHED_JOBS_LIMIT = 50;
 
 function lc(s: string) {
@@ -89,6 +90,7 @@ function filterJobsBySearch(jobs: Job[], query: string): Job[] {
 }
 
 const FILTERS = [
+  { key: "all", label: () => t("all"), icon: "grid-outline" as const },
   { key: "nearby", label: () => t("nearby"), icon: "location" as const },
   { key: "daily", label: () => t("daily_wage"), icon: "cash-outline" as const },
   { key: "full", label: () => t("full_time"), icon: "briefcase-outline" as const },
@@ -113,7 +115,7 @@ export default function Home() {
   const [allJobs, setAllJobs] = useState<Job[]>([]);
   const [recommendedJobs, setRecommendedJobs] = useState<Job[]>([]);
   const [appliedFilters, setAppliedFilters] = useState<JobFilterParams | null>(null);
-  const [activeChip, setActiveChip] = useState("nearby");
+  const [activeChip, setActiveChip] = useState("all");
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -139,8 +141,11 @@ export default function Home() {
       if (saved?.salary_min != null) recParams.salary_min = saved.salary_min;
       if (saved?.salary_max != null) recParams.salary_max = saved.salary_max;
       const matched = (await api.getWorkerRecommendations(wid, MATCHED_JOBS_LIMIT, recParams)) as Job[];
-      setRecommendedJobs(matched.slice(0, RECOMMENDED_LIMIT));
       setAllJobs(matched);
+      const flagged = matched.filter((j) => j.recommended);
+      setRecommendedJobs(
+        (flagged.length > 0 ? flagged : matched).slice(0, RECOMMENDED_LIMIT)
+      );
     } catch (e) {
       if (isUnauthorizedError(e) || isAccountNotFoundError(e)) {
         await session.clear();
@@ -165,13 +170,20 @@ export default function Home() {
     loadAll();
   };
 
-  const allJobsList = useMemo(() => {
-    const recommendedIds = new Set(recommendedJobs.map((j) => j.id));
-    const filtered = filterJobsByChip(filterJobsBySearch(allJobs, search), activeChip, worker);
-    return filtered.filter((j) => !recommendedIds.has(j.id));
-  }, [allJobs, search, activeChip, worker, recommendedJobs]);
+  const filteredJobs = useMemo(
+    () => filterJobsByChip(filterJobsBySearch(allJobs, search), activeChip, worker),
+    [allJobs, search, activeChip, worker]
+  );
 
-  const topRecommendations = useMemo(() => recommendedJobs, [recommendedJobs]);
+  const topRecommendations = useMemo(() => {
+    const recIds = new Set(recommendedJobs.map((j) => j.id));
+    return filteredJobs.filter((j) => recIds.has(j.id));
+  }, [filteredJobs, recommendedJobs]);
+
+  const allJobsList = useMemo(() => {
+    const recIds = new Set(topRecommendations.map((j) => j.id));
+    return filteredJobs.filter((j) => !recIds.has(j.id));
+  }, [filteredJobs, topRecommendations]);
 
   const filtersActive = Boolean(appliedFilters && Object.keys(appliedFilters).length > 0);
 
@@ -181,7 +193,6 @@ export default function Home() {
     <SafeAreaView style={styles.container} testID="home-screen" edges={["top"]}>
       <ScreenContainer fill>
         <ScrollView
-          stickyHeaderIndices={[1]}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFF" />}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollBottomPadding }]}
@@ -272,9 +283,6 @@ export default function Home() {
             </ScrollView>
           </LinearGradient>
 
-          {/* Sticky quick actions */}
-         
-
           <View style={[styles.body, { paddingHorizontal: horizontalPadding }]}>
             {error ? (
               <ErrorBanner message={error} onRetry={() => loadAll()} onDismiss={() => setError(null)} />
@@ -306,29 +314,29 @@ export default function Home() {
 
             <View style={styles.sectionHeader}>
               <View style={styles.sectionLeft}>
-                <Text style={styles.sectionTitle}>{t("jobs")}</Text>
-                {!loading && allJobsList.length > 0 ? (
+                <Text style={styles.sectionTitle}>{t("recommended_for_you")}</Text>
+                {!loading && topRecommendations.length > 0 ? (
                   <View style={styles.countBadge}>
-                    <Text style={styles.countText}>{allJobsList.length}</Text>
+                    <Text style={styles.countText}>{topRecommendations.length}</Text>
                   </View>
                 ) : null}
               </View>
             </View>
 
-            <Text style={styles.sectionSub}>
-              {loading
-                ? "Loading..."
-                : filtersActive
-                  ? `${allJobsList.length} jobs · ${t("filters_applied")}`
-                  : `${allJobsList.length} jobs`}
-            </Text>
+            {!loading && topRecommendations.length === 0 && allJobsList.length > 0 ? (
+              <Text style={styles.subsectionSub}>
+                {filtersActive || activeChip !== "all" || search.trim()
+                  ? "No recommended matches for your current filters."
+                  : "Browse more jobs below."}
+              </Text>
+            ) : null}
 
             {loading ? (
               <View style={styles.loaderWrap}>
                 <ActivityIndicator color={COLORS.primary} size="large" />
                 <Text style={styles.loaderText}>Finding jobs for you...</Text>
               </View>
-            ) : allJobsList.length === 0 && topRecommendations.length === 0 ? (
+            ) : topRecommendations.length === 0 && allJobsList.length === 0 ? (
               <EmptyState
                 icon="search-outline"
                 title="No jobs found"
@@ -342,20 +350,35 @@ export default function Home() {
               <>
                 {topRecommendations.length > 0 ? (
                   <View style={styles.subsection}>
-                    <Text style={styles.subsectionTitle}>{t("recommended_for_you")}</Text>
                     <Text style={styles.subsectionSub}>Matched to your profile</Text>
                     {topRecommendations.map((j) => (
-                      <JobCard key={`rec-${j.id}`} job={j} matchScore={j.match_score} callToApply />
+                      <JobCard
+                        key={`rec-${j.id}`}
+                        job={j}
+                        matchScore={j.match_score}
+                        callToApply
+                      />
                     ))}
                   </View>
                 ) : null}
+
                 {allJobsList.length > 0 ? (
-                <View style={styles.subsection}>
-                  <Text style={styles.subsectionTitle}>{t("all_jobs")}</Text>
-                  {allJobsList.map((j) => (
-                    <JobCard key={j.id} job={j} />
-                  ))}
-                </View>
+                  <View style={styles.subsection}>
+                    <View style={styles.sectionHeader}>
+                      <View style={styles.sectionLeft}>
+                        <Text style={styles.sectionTitle}>{t("all_jobs")}</Text>
+                        <View style={styles.countBadge}>
+                          <Text style={styles.countText}>{allJobsList.length}</Text>
+                        </View>
+                      </View>
+                    </View>
+                    <Text style={styles.sectionSub}>
+                      {filtersActive ? `${t("filters_applied")}` : "More openings for you"}
+                    </Text>
+                    {allJobsList.map((j) => (
+                      <JobCard key={j.id} job={j} matchScore={j.match_score} callToApply />
+                    ))}
+                  </View>
                 ) : null}
               </>
             )}
@@ -363,29 +386,6 @@ export default function Home() {
         </ScrollView>
       </ScreenContainer>
     </SafeAreaView>
-  );
-}
-
-function QuickAction({
-  icon,
-  label,
-  onPress,
-  testID,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress: () => void;
-  testID?: string;
-}) {
-  return (
-    <TouchableOpacity testID={testID} onPress={onPress} style={styles.quickAction} activeOpacity={0.8}>
-      <View style={styles.quickActionIcon}>
-        <Ionicons name={icon} size={18} color={COLORS.primary} />
-      </View>
-      <Text style={styles.quickActionLabel} numberOfLines={1}>
-        {label}
-      </Text>
-    </TouchableOpacity>
   );
 }
 
@@ -481,40 +481,6 @@ const styles = StyleSheet.create({
   },
   filterChipText: { fontSize: 13, fontWeight: "600", color: "rgba(255,255,255,0.95)" },
   filterChipTextActive: { color: COLORS.primary },
-  quickActionsBar: {
-    flexDirection: "row",
-    gap: 10,
-    paddingVertical: 14,
-    backgroundColor: COLORS.bgApp,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderLight,
-  },
-  quickAction: {
-    flex: 1,
-    alignItems: "center",
-    backgroundColor: COLORS.bgCard,
-    borderRadius: RADIUS.lg,
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-    borderWidth: 1,
-    borderColor: COLORS.borderLight,
-    minWidth: 0,
-  },
-  quickActionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.primaryLight,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 6,
-  },
-  quickActionLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: COLORS.textPrimary,
-    textAlign: "center",
-  },
   body: { paddingTop: 16 },
   nudgeCard: {
     flexDirection: "row",
@@ -565,7 +531,7 @@ const styles = StyleSheet.create({
   },
   countText: { fontSize: 12, fontWeight: "700", color: COLORS.primary },
   sectionSub: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4, marginBottom: 14 },
-  subsection: { marginBottom: 8 },
+  subsection: { marginBottom: 20 },
   subsectionTitle: {
     fontSize: 15,
     fontWeight: "700",

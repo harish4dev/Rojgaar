@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { COLORS, RADIUS } from "@/src/constants/theme";
 import PrimaryButton from "@/src/components/PrimaryButton";
 import ScreenHeader from "@/src/components/ScreenHeader";
+import OnboardingScreen from "@/src/components/OnboardingScreen";
 import { api } from "@/src/api/client";
 import { session } from "@/src/store/session";
 import { t } from "@/src/i18n/translations";
@@ -70,69 +70,12 @@ export default function IndustryScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} testID="industry-screen">
-      <ScreenHeader title="" />
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>{t("select_industry")}</Text>
-        <Text style={styles.subtitle}>Choose your industry and job role (optional)</Text>
-
-        <Text style={styles.sectionLabel}>Industry</Text>
-        <View style={styles.grid}>
-          {industries.map((ind) => {
-            const active = selectedIndustry === ind.key;
-            return (
-              <TouchableOpacity
-                key={ind.key}
-                testID={`industry-${ind.key}`}
-                style={[styles.tile, active && styles.tileActive]}
-                activeOpacity={0.85}
-                onPress={() => {
-                  setSelectedIndustry(ind.key);
-                  setSelectedRoles([]);
-                }}
-              >
-                <View style={styles.tileIcon}>
-                  <Ionicons name={(ind.icon || "business") as any} size={24} color={COLORS.primary} />
-                </View>
-                <Text style={styles.tileText}>{ind.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {selectedIndustry && availableRoles.length > 0 && (
-          <>
-            <Text style={styles.sectionLabel}>Job role</Text>
-            <View style={styles.roleGrid}>
-              {availableRoles.map((role) => {
-                const active = selectedRoles.includes(role);
-                return (
-                  <TouchableOpacity
-                    key={role}
-                    testID={`role-${role}`}
-                    onPress={() => toggleRole(role)}
-                    activeOpacity={0.85}
-                    style={[styles.chip, active && styles.chipActive]}
-                  >
-                    <View style={styles.chipIcon}>
-                      <Ionicons
-                        name={(ROLE_ICONS[role] || "briefcase") as any}
-                        size={16}
-                        color={COLORS.primary}
-                      />
-                    </View>
-                    <Text style={styles.chipText}>{role}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </>
-        )}
-      </ScrollView>
-      <View style={styles.footer}>
-        <TouchableOpacity onPress={() => persistAndContinue(true)} style={styles.skipBtn}>
-          <Text style={styles.skipText}>Skip for now</Text>
-        </TouchableOpacity>
+    <OnboardingScreen
+      testID="industry-screen"
+      header={<ScreenHeader title="" />}
+      skipLabel="Skip for now"
+      onSkip={() => persistAndContinue(true)}
+      footer={
         <PrimaryButton
           testID="industry-continue"
           title={t("continue")}
@@ -140,14 +83,68 @@ export default function IndustryScreen() {
           disabled={!selectedIndustry}
           loading={saving}
         />
+      }
+    >
+      <Text style={styles.title}>{t("select_industry")}</Text>
+      <Text style={styles.subtitle}>Choose your industry and job role (optional)</Text>
+
+      <Text style={styles.sectionLabel}>Industry</Text>
+      <View style={styles.grid}>
+        {industries.map((ind) => {
+          const active = selectedIndustry === ind.key;
+          return (
+            <TouchableOpacity
+              key={ind.key}
+              testID={`industry-${ind.key}`}
+              style={[styles.tile, active && styles.tileActive]}
+              activeOpacity={0.85}
+              onPress={() => {
+                setSelectedIndustry(ind.key);
+                setSelectedRoles([]);
+              }}
+            >
+              <View style={styles.tileIcon}>
+                <Ionicons name={(ind.icon || "business") as any} size={24} color={COLORS.primary} />
+              </View>
+              <Text style={styles.tileText}>{ind.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
-    </SafeAreaView>
+
+      {selectedIndustry && availableRoles.length > 0 && (
+        <>
+          <Text style={styles.sectionLabel}>Job role</Text>
+          <View style={styles.roleGrid}>
+            {availableRoles.map((role) => {
+              const active = selectedRoles.includes(role);
+              return (
+                <TouchableOpacity
+                  key={role}
+                  testID={`role-${role}`}
+                  onPress={() => toggleRole(role)}
+                  activeOpacity={0.85}
+                  style={[styles.chip, active && styles.chipActive]}
+                >
+                  <View style={styles.chipIcon}>
+                    <Ionicons
+                      name={(ROLE_ICONS[role] || "briefcase") as any}
+                      size={16}
+                      color={COLORS.primary}
+                    />
+                  </View>
+                  <Text style={styles.chipText}>{role}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </>
+      )}
+    </OnboardingScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFF" },
-  scroll: { padding: 24, paddingBottom: 140 },
   title: { fontSize: 22, fontWeight: "700", color: COLORS.textPrimary, textAlign: "center" },
   subtitle: { fontSize: 13, color: COLORS.textSecondary, textAlign: "center", marginTop: 6, marginBottom: 24 },
   sectionLabel: { fontSize: 14, fontWeight: "700", color: COLORS.textPrimary, marginBottom: 10, marginTop: 8 },
@@ -198,17 +195,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   chipText: { fontSize: 13, fontWeight: "600", color: COLORS.textPrimary },
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
-    backgroundColor: "#FFF",
-    borderTopWidth: 1,
-    borderTopColor: COLORS.borderLight,
-    gap: 8,
-  },
-  skipBtn: { alignItems: "center", paddingVertical: 4 },
-  skipText: { fontSize: 14, fontWeight: "600", color: COLORS.textSecondary },
 });

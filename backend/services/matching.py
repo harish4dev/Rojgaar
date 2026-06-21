@@ -12,7 +12,7 @@ WEIGHTS = {
     "work_type": 10,
 }
 
-MIN_RECOMMENDATION_SCORE = 40
+MIN_RECOMMENDATION_SCORE = 25
 
 CORE_MATCH_REASONS = {"skills_match", "industry_match", "same_city", "preferred_title_match"}
 
@@ -135,11 +135,21 @@ def passes_relevance_filter(worker: dict[str, Any], job: dict[str, Any]) -> bool
 
 
 def is_strong_recommendation(score: int, reasons: list[str]) -> bool:
-    if score < MIN_RECOMMENDATION_SCORE:
+    if score < MIN_RECOMMENDATION_SCORE or "ineligible" in reasons:
         return False
-    if not set(reasons).intersection(CORE_MATCH_REASONS):
+    if set(reasons).intersection(CORE_MATCH_REASONS):
+        return True
+    # City + another signal (e.g. work type) is enough for sparse profiles
+    if "same_city" in reasons and len(reasons) >= 2:
+        return True
+    return False
+
+
+def is_browse_recommendation(score: int, reasons: list[str]) -> bool:
+    """Softer gate when few strong matches exist."""
+    if score < 15 or "ineligible" in reasons:
         return False
-    return True
+    return bool(reasons)
 
 
 def _tokenize(text: str) -> set[str]:

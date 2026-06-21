@@ -16,6 +16,7 @@ import * as Location from "expo-location";
 import { COLORS, RADIUS } from "@/src/constants/theme";
 import PrimaryButton from "@/src/components/PrimaryButton";
 import ScreenHeader from "@/src/components/ScreenHeader";
+import OnboardingFooter from "@/src/components/OnboardingFooter";
 import { api } from "@/src/api/client";
 import { session } from "@/src/store/session";
 import { t } from "@/src/i18n/translations";  
@@ -119,67 +120,34 @@ export default function CityScreen() {
   };
 
   return (
-    <SafeAreaView
-      style={styles.container}
-      testID="city-screen"
-    >
+    <SafeAreaView style={styles.container} testID="city-screen" edges={["top"]}>
       <ScreenHeader title={t("select_city")} />
 
       {detecting ? (
         <View style={styles.centerContent}>
-          <ActivityIndicator
-            size="large"
-            color={COLORS.primary}
-          />
-
-          <Text style={styles.loaderTitle}>
-            Detecting your location
-          </Text>
-
-          <Text style={styles.loaderSubtitle}>
-            This will only take a few seconds
-          </Text>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loaderTitle}>Detecting your location</Text>
+          <Text style={styles.loaderSubtitle}>This will only take a few seconds</Text>
         </View>
       ) : !showManualSelection && city ? (
-        <View style={styles.centerContent}>
-          <View style={styles.locationIcon}>
-            <Ionicons
-              name="location"
-              size={40}
-              color={COLORS.primary}
-            />
+        <>
+          <View style={styles.centerContent}>
+            <View style={styles.locationIcon}>
+              <Ionicons name="location" size={40} color={COLORS.primary} />
+            </View>
+            <Text style={styles.cityName}>{city}</Text>
+            <Text style={styles.cityDescription}>We detected your current city</Text>
+            <TouchableOpacity onPress={() => setShowManualSelection(true)}>
+              <Text style={styles.changeText}>Select Different City</Text>
+            </TouchableOpacity>
           </View>
-
-          <Text style={styles.cityName}>
-            {city}
-          </Text>
-
-          <Text style={styles.cityDescription}>
-            We detected your current city
-          </Text>
-
-          <View style={styles.buttonContainer}>
-            <PrimaryButton
-              title="Confirm & Continue"
-              onPress={handleContinue}
-            />
-          </View>
-
-          <TouchableOpacity
-            onPress={() =>
-              setShowManualSelection(true)
-            }
-          >
-            <Text style={styles.changeText}>
-              Select Different City
-            </Text>
-          </TouchableOpacity>
-        </View>
+          <OnboardingFooter>
+            <PrimaryButton title="Confirm & Continue" onPress={handleContinue} />
+          </OnboardingFooter>
+        </>
       ) : (
         <>
-          <ScrollView
-            contentContainerStyle={styles.scroll}
-          >
+          <ScrollView style={styles.flex} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
             <View style={styles.searchBox}>
               <Ionicons
                 name="search"
@@ -239,16 +207,9 @@ export default function CityScreen() {
             )}
           </ScrollView>
 
-          <View style={styles.footer}>
-            <TouchableOpacity onPress={handleSkip} style={styles.skipBtn}>
-              <Text style={styles.skipText}>Skip for now</Text>
-            </TouchableOpacity>
-            <PrimaryButton
-              title={t("continue")}
-              onPress={handleContinue}
-              disabled={!city}
-            />
-          </View>
+          <OnboardingFooter skipLabel="Skip for now" onSkip={handleSkip}>
+            <PrimaryButton title={t("continue")} onPress={handleContinue} disabled={!city} />
+          </OnboardingFooter>
         </>
       )}
     </SafeAreaView>
@@ -295,6 +256,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFF",
   },
+  flex: { flex: 1 },
 
   centerContent: {
     flex: 1,
@@ -353,7 +315,7 @@ const styles = StyleSheet.create({
 
   scroll: {
     padding: 16,
-    paddingBottom: 120,
+    paddingBottom: 16,
   },
 
   searchBox: {
@@ -419,18 +381,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: COLORS.textPrimary,
   },
-
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
-    backgroundColor: "#FFF",
-    borderTopWidth: 1,
-    borderTopColor: COLORS.borderLight,
-    gap: 8,
-  },
-  skipBtn: { alignItems: "center", paddingVertical: 4 },
-  skipText: { fontSize: 14, fontWeight: "600", color: COLORS.textSecondary },
 });

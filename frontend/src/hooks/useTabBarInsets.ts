@@ -8,7 +8,7 @@ export function useTabBarInsets() {
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === "web" ? 0 : insets.bottom;
   const tabBarHeight = TAB_BAR_CONTENT_HEIGHT + bottomInset;
-  const scrollBottomPadding = tabBarHeight + 12;
+  const scrollBottomPadding = tabBarHeight + 28;
 
   return {
     insets,

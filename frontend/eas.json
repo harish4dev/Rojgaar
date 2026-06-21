@@ -14,7 +14,18 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://rojgaar-connect.preview.emergentagent.com"
+        "EXPO_PUBLIC_BACKEND_URL": "https://poetic-flow-production-d2eb.up.railway.app"
+      }
+    },
+    "preview-small": {
+      "extends": "preview",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "https://poetic-flow-production-d2eb.up.railway.app",
+        "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a"
       }
     },
     "production": {
@@ -23,7 +34,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://rojgaar-connect.preview.emergentagent.com"
+        "EXPO_PUBLIC_BACKEND_URL": "https://poetic-flow-production-d2eb.up.railway.app"
       }
     }
   },

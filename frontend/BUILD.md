@@ -20,6 +20,12 @@
    ```
    Share the APK link from the EAS dashboard. Workers install → language → phone → **real SMS OTP** → name/age → optional profile → home.
 
+   **Smaller test APK (~25–35 MB instead of ~90 MB):**
+   ```bash
+   eas build --platform android --profile preview-small
+   ```
+   Uses arm64-only + R8 minify. For older 32-bit phones use `preview` instead.
+
 4. **Businesses post real jobs** via `web/` business portal (`npm run dev` or deploy `web/dist`).
 
 ## Prerequisites

@@ -54,12 +54,6 @@ export const api = {
     return req(`/jobs${q ? `?${q}` : ""}`, {}, false);
   },
   getJob: (id: string) => req(`/jobs/${id}`, {}, false),
-  createJob: (data: any) => req("/jobs", { method: "POST", body: JSON.stringify(data) }),
-  updateJobHiringStatus: (jobId: string, hiring_status: "active" | "stopped") =>
-    req(`/jobs/${jobId}/hiring-status`, {
-      method: "PATCH",
-      body: JSON.stringify({ hiring_status }),
-    }),
 
   apply: (worker_id: string, job_id: string) =>
     req("/applications", { method: "POST", body: JSON.stringify({ worker_id, job_id }) }),
@@ -70,24 +64,6 @@ export const api = {
   unsaveJob: (worker_id: string, job_id: string) =>
     req(`/saved-jobs?worker_id=${worker_id}&job_id=${job_id}`, { method: "DELETE" }),
   listSavedJobs: (worker_id: string) => req(`/saved-jobs?worker_id=${worker_id}`),
-
-  getBusiness: (id: string) => req(`/businesses/${id}`),
-  getBusinessStats: (id: string) => req(`/businesses/${id}/stats`),
-  getBusinessJobs: (id: string) => req(`/businesses/${id}/jobs`),
-  getBusinessApplications: (id: string) => req(`/businesses/${id}/applications`),
-  updateApplicationStatus: (applicationId: string, status: string) =>
-    req(`/applications/${applicationId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    }),
-
-  getPartner: (id: string) => req(`/partners/${id}`),
-  getPartnerStats: (id: string) => req(`/partners/${id}/stats`),
-  getPartnerCandidates: (id: string) => req(`/partners/${id}/candidates`),
-  requestPartnerCandidateOtp: (id: string, data: any) =>
-    req(`/partners/${id}/candidates/request-otp`, { method: "POST", body: JSON.stringify(data) }),
-  confirmPartnerCandidate: (id: string, data: { employee_number: string; otp: string }) =>
-    req(`/partners/${id}/candidates/confirm`, { method: "POST", body: JSON.stringify(data) }),
 
   getCities: () => req("/meta/cities", {}, false),
   getIndustries: () => req("/meta/industries", {}, false),
@@ -105,22 +81,5 @@ export const api = {
     });
     const q = qs.toString();
     return req(`/recommendations/workers/${workerId}/jobs${q ? `?${q}` : ""}`);
-  },
-  getJobCandidatesRanking: (jobId: string, limit: number = 50) =>
-    req(`/recommendations/jobs/${jobId}/candidates?limit=${limit}`),
-  sendWhatsappNotification: (worker_id: string, event_type: string, message?: string) =>
-    req("/notifications/whatsapp", {
-      method: "POST",
-      body: JSON.stringify({ worker_id, event_type, message }),
-    }),
-  bulkUploadPartnerCandidates: (id: string, file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    return req(`/partners/${id}/bulk/candidates`, { method: "POST", body: formData });
-  },
-  bulkUploadPartnerJobs: (id: string, file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    return req(`/partners/${id}/bulk/jobs`, { method: "POST", body: formData });
   },
 };

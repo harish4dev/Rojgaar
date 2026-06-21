@@ -82,4 +82,6 @@ def test_relevance_filter_blocks_skill_mismatch_same_industry():
 def test_strong_recommendation_requires_core_signal():
     assert is_strong_recommendation(50, ["work_type_match"]) is False
     assert is_strong_recommendation(50, ["same_city", "skills_match"]) is True
-    assert is_strong_recommendation(30, ["same_city", "skills_match"]) is False
+    assert is_strong_recommendation(30, ["same_city", "skills_match"]) is True
+    assert is_strong_recommendation(20, ["same_city", "skills_match"]) is False
+    assert is_strong_recommendation(28, ["same_city", "work_type_match"]) is True

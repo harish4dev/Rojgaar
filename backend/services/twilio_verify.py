@@ -116,8 +116,8 @@ async def _check_stored_otp(phone: str, code: str) -> None:
         if exp.tzinfo is None:
             exp = exp.replace(tzinfo=timezone.utc)
         if exp < datetime.now(timezone.utc):
-        await db.otp_codes.delete_one({"phone": phone})
-        raise HTTPException(status_code=400, detail="Invalid or expired verification code")
+            await db.otp_codes.delete_one({"phone": phone})
+            raise HTTPException(status_code=400, detail="Invalid or expired verification code")
     if doc.get("code") != code:
         raise HTTPException(status_code=400, detail="Invalid or expired verification code")
     await db.otp_codes.delete_one({"phone": phone})

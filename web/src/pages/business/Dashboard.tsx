@@ -253,6 +253,10 @@ export default function BusinessDashboard() {
     >
       <h1 className="dash-title">{pageTitle}</h1>
 
+      {loading && !loadError && (
+        <p className="dash-message dash-message--banner">Loading dashboard…</p>
+      )}
+
       {loadError && (
         <p className="dash-message dash-message--banner">
           {loadError}{' '}

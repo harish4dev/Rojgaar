@@ -184,6 +184,7 @@ export const api = {
     age_min?: number
     age_max?: number
     experience_band?: string
+    requirements?: string[]
     preferred_languages?: string[]
     working_hours?: string
     working_days_per_week?: number

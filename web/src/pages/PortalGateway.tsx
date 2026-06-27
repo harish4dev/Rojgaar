@@ -42,6 +42,9 @@ export default function PortalGateway() {
           Looking for work?{' '}
           <Link to="/#download">Download the Rojgaar app</Link> for workers.
         </p>
+        <p className="portal-gateway__note">
+          <Link to="/privacy">Privacy Policy</Link>
+        </p>
       </main>
     </div>
   )

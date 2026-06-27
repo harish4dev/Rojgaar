@@ -5,12 +5,14 @@ import BusinessAuth from '@/pages/business/Auth'
 import BusinessDashboard from '@/pages/business/Dashboard'
 import PartnerAuth from '@/pages/partner/Auth'
 import PartnerDashboard from '@/pages/partner/Dashboard'
+import PrivacyPolicy from '@/pages/PrivacyPolicy'
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/portal" element={<PortalGateway />} />
         <Route path="/business/login" element={<BusinessAuth />} />
         <Route path="/business/dashboard" element={<BusinessDashboard />} />

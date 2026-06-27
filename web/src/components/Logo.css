@@ -14,22 +14,27 @@
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
+  border-radius: 22%;
 }
 
 .logo--sm .logo__img {
   height: 32px;
+  border-radius: 8px;
 }
 
 .logo--md .logo__img {
   height: 44px;
+  border-radius: 11px;
 }
 
 .logo--lg .logo__img {
   height: 64px;
+  border-radius: 16px;
 }
 
 .logo--xl .logo__img {
   height: 120px;
+  border-radius: 22px;
 }
 
 .logo__text {

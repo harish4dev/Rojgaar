@@ -231,6 +231,7 @@
   height: clamp(120px, 18vw, 168px);
   width: auto;
   object-fit: contain;
+  border-radius: clamp(18px, 4vw, 28px);
   filter: drop-shadow(0 16px 32px rgba(17, 24, 39, 0.12));
   animation: landing-float 5s ease-in-out infinite;
 }
@@ -617,7 +618,7 @@
   width: auto;
   margin: 0 auto 24px;
   display: block;
-  border-radius: 12px;
+  border-radius: 20px;
   background: #fff;
   padding: 8px 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);

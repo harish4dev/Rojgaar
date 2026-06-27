@@ -40,6 +40,7 @@ Set `VITE_BACKEND_URL` in `.env` to your FastAPI server (default `http://localho
 | Path                    | Page                          |
 |-------------------------|-------------------------------|
 | `/`                     | Landing page                  |
+| `/privacy`              | Privacy Policy (Play Store)   |
 | `/portal`               | Business / Partner picker     |
 | `/business/login`       | Business OTP login / signup   |
 | `/business/dashboard`   | Business dashboard            |

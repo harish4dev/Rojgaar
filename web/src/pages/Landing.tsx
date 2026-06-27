@@ -249,6 +249,7 @@ export default function Landing() {
         <nav className="landing__footer-nav" aria-label="Footer">
           <a href="#features">Features</a>
           <Link to="/portal">Portals</Link>
+          <Link to="/privacy">Privacy Policy</Link>
           <a href="#download">Download</a>
         </nav>
         <p>© {new Date().getFullYear()} Rojgaar. Find jobs near you.</p>

@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, RADIUS } from "@/src/constants/theme";
+import { t } from "@/src/i18n/translations";
 
 export default function ErrorBanner({
   message,
@@ -17,7 +18,7 @@ export default function ErrorBanner({
       <Text style={styles.text}>{message}</Text>
       {onRetry ? (
         <TouchableOpacity onPress={onRetry} hitSlop={8} style={styles.retry}>
-          <Text style={styles.retryText}>Retry</Text>
+          <Text style={styles.retryText}>{t("retry")}</Text>
         </TouchableOpacity>
       ) : null}
       {onDismiss ? (

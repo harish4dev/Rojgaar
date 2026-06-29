@@ -72,6 +72,7 @@ export default function IndustryScreen() {
   return (
     <OnboardingScreen
       testID="industry-screen"
+      step={6}
       header={<ScreenHeader title="" />}
       skipLabel="Skip for now"
       onSkip={() => persistAndContinue(true)}

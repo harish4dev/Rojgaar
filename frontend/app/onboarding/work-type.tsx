@@ -37,6 +37,7 @@ export default function WorkTypeScreen() {
   return (
     <OnboardingScreen
       testID="work-type-screen"
+      step={8}
       header={<ScreenHeader title="" />}
       skipLabel="Skip for now"
       onSkip={() => finish(false)}

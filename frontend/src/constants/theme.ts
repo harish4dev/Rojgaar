@@ -4,7 +4,7 @@ export const COLORS = {
   primaryDark: "#0D3D8A",
   primaryLight: "#E8F0FE",
   accent: "#4A90D9",
-  bgApp: "#FFFFFF",
+  bgApp: "#F5F7FA",
   surface: "#F5F8FF",
   bgCard: "#FFFFFF",
   sidebarBg: "#0A1A3A",

@@ -20,10 +20,11 @@ import { getJobField, getJobRequirements } from "@/src/utils/jobTranslation";
 import { callAfterApply } from "@/src/utils/jobActions";
 import { viewedJobs } from "@/src/store/viewedJobs";
 import { getApiErrorMessage } from "@/src/utils/apiError";
-import ErrorBanner from "@/src/components/ErrorBanner";
+import EmptyState from "@/src/components/EmptyState";
 import ScreenContainer from "@/src/components/ScreenContainer";
 import { useResponsive } from "@/src/hooks/useResponsive";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { formatJobSalary, formatDistanceKm, haversineKm } from "@/src/utils/jobDisplay";
 
 export default function JobDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -33,6 +34,7 @@ export default function JobDetail() {
   const footerBottomPadding = Math.max(insets.bottom, 12);
   const [job, setJob] = useState<any>(null);
   const [saved, setSaved] = useState(false);
+  const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,12 +43,36 @@ export default function JobDetail() {
     setLoading(true);
     try {
       setError(null);
-      const [j, savedList] = await Promise.all([
+      const [j, savedList, wid] = await Promise.all([
         api.getJob(id),
-        session.getWorkerId().then((wid) => (wid ? api.listSavedJobs(wid) : [])),
+        session.getWorkerId().then((w) => (w ? api.listSavedJobs(w) : [])),
+        session.getWorkerId(),
       ]);
       setJob(j);
       setSaved(savedList.some((s: any) => s.id === id));
+      if (wid && j.location_lat != null && j.location_lng != null) {
+        try {
+          const worker = await api.getWorker(wid);
+          if (worker.location_lat != null && worker.location_lng != null) {
+            setDistanceKm(
+              Math.round(
+                haversineKm(
+                  worker.location_lat,
+                  worker.location_lng,
+                  j.location_lat,
+                  j.location_lng
+                ) * 100
+              ) / 100
+            );
+          } else if (j.distance_km != null) {
+            setDistanceKm(j.distance_km);
+          }
+        } catch {
+          if (j.distance_km != null) setDistanceKm(j.distance_km);
+        }
+      } else if (j.distance_km != null) {
+        setDistanceKm(j.distance_km);
+      }
       await viewedJobs.add({
         id: j.id,
         title: j.title,
@@ -57,7 +83,7 @@ export default function JobDetail() {
         image_url: j.image_url,
       });
     } catch (e) {
-      setError(getApiErrorMessage(e, "Could not load this job."));
+      setError(getApiErrorMessage(e, t("could_not_load_job")));
     } finally {
       setLoading(false);
     }
@@ -70,12 +96,16 @@ export default function JobDetail() {
   const toggleSave = async () => {
     const wid = await session.getWorkerId();
     if (!wid || !job) return;
-    if (saved) {
-      await api.unsaveJob(wid, job.id);
-      setSaved(false);
-    } else {
-      await api.saveJob(wid, job.id);
-      setSaved(true);
+    const next = !saved;
+    setSaved(next);
+    try {
+      if (next) {
+        await api.saveJob(wid, job.id);
+      } else {
+        await api.unsaveJob(wid, job.id);
+      }
+    } catch {
+      setSaved(!next);
     }
   };
 
@@ -99,10 +129,15 @@ export default function JobDetail() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={[styles.loaderWrap, { padding: 24 }]}>
-          {error ? <ErrorBanner message={error} onRetry={load} /> : null}
-          <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16 }}>
-            <Text style={{ color: COLORS.primary, fontWeight: "700" }}>Go back</Text>
-          </TouchableOpacity>
+          <EmptyState
+            icon="briefcase-outline"
+            title={t("job_unavailable")}
+            subtitle={error || t("could_not_load_job")}
+            actionLabel={t("go_home")}
+            onAction={() => router.replace("/(tabs)/home" as any)}
+            secondaryLabel={t("retry")}
+            onSecondary={load}
+          />
         </View>
       </SafeAreaView>
     );
@@ -147,13 +182,18 @@ export default function JobDetail() {
             </View>
           </View>
 
-          <Text style={styles.salary}>
-            ₹{job.salary_min.toLocaleString("en-IN")} - ₹{job.salary_max.toLocaleString("en-IN")}{" "}
-            <Text style={styles.salaryMonth}>/month</Text>
-          </Text>
+          <Text style={styles.salary}>{formatJobSalary(job)}</Text>
 
           <View style={styles.metaRow}>
-            <Meta label={job.city} sub={t("city")} icon="location" />
+            <Meta
+              label={
+                distanceKm != null
+                  ? `${job.city}${formatDistanceKm(distanceKm) ? ` • ${formatDistanceKm(distanceKm)}` : ""}`
+                  : job.location_label || job.city
+              }
+              sub={t("city")}
+              icon="location"
+            />
             <Meta label={getJobField(job, "experience") || job.experience} sub={t("experience")} icon="briefcase" />
             <Meta label={getJobField(job, "job_type") || job.job_type} sub={t("job_type")} icon="time" />
           </View>
@@ -182,7 +222,7 @@ export default function JobDetail() {
               color={saved ? COLORS.primary : COLORS.textPrimary}
             />
             <Text style={[styles.saveLabel, saved && { color: COLORS.primary }]}>
-              {saved ? t("saved") : t("save")}
+              {saved ? t("saved") : t("save_job")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity testID="call-apply" onPress={handleCall} style={styles.applyBtn}>
@@ -302,6 +342,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     paddingVertical: 14,
+    minHeight: 52,
     minWidth: 0,
   },
   applyText: { color: "#FFF", fontSize: 15, fontWeight: "700" },

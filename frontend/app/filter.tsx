@@ -102,7 +102,7 @@ export default function FilterScreen() {
         title={t("filter_jobs")}
         right={
           <TouchableOpacity onPress={reset} testID="reset-btn">
-            <Text style={styles.resetText}>{t("reset")}</Text>
+            <Text style={styles.resetText}>{t("clear_all")}</Text>
           </TouchableOpacity>
         }
       />
@@ -185,7 +185,7 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFF" },
+  container: { flex: 1, backgroundColor: COLORS.bgApp },
   scroll: { padding: 16, paddingBottom: 120 },
   sectionTitle: { fontSize: 14, fontWeight: "700", color: COLORS.textPrimary, marginBottom: 10 },
   row: { flexDirection: "row", flexWrap: "wrap", gap: 8 },

@@ -32,9 +32,22 @@ export interface Business {
   phone: string
   company: string
   city: string
+  locality?: string
+  location_label?: string
+  location_lat?: number
+  location_lng?: number
   industry?: string
   profile_complete?: boolean
   created_at?: string
+}
+
+export interface LocationResult {
+  locality: string
+  city: string
+  location_label: string
+  location_lat: number
+  location_lng: number
+  display_name?: string
 }
 
 export interface Partner {
@@ -53,6 +66,10 @@ export interface Job {
   company: string
   industry: string
   city: string
+  location_label?: string
+  location_lat?: number
+  location_lng?: number
+  distance_km?: number
   salary_min: number
   salary_max: number
   salary_negotiable?: boolean
@@ -141,7 +158,19 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ phone, otp, role }) },
     ),
 
-  updateBusiness: (id: string, data: { name: string; company: string; city: string; industry: string }) =>
+  updateBusiness: (
+    id: string,
+    data: {
+      name: string
+      company: string
+      city: string
+      industry: string
+      locality?: string
+      location_label?: string
+      location_lat?: number
+      location_lng?: number
+    },
+  ) =>
     req<Business>(`/businesses/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -177,6 +206,9 @@ export const api = {
     company: string
     industry: string
     city: string
+    location_label?: string
+    location_lat?: number
+    location_lng?: number
     salary_min: number
     salary_max: number
     salary_negotiable?: boolean
@@ -217,6 +249,15 @@ export const api = {
   getGreyCollarSkills: () => req<Record<string, string[]>>('/meta/grey-collar-skills'),
   getIndustries: () => req<{ key: string; label: string; icon?: string }[]>('/meta/industries'),
   getIndustryJobTitles: () => req<Record<string, string[]>>('/meta/industry-job-titles'),
+
+  reverseGeocode: (lat: number, lng: number) =>
+    req<LocationResult>('/meta/reverse-geocode', {
+      method: 'POST',
+      body: JSON.stringify({ lat, lng }),
+    }),
+
+  searchPlaces: (q: string) =>
+    req<LocationResult[]>(`/meta/places/search?q=${encodeURIComponent(q)}`),
 
   bulkUploadPartnerCandidates: (id: string, file: File) => {
     const formData = new FormData()

@@ -4,6 +4,8 @@ import { api, type Business, type Partner, type Role } from '@/api/client'
 import { setSession } from '@/store/auth'
 import { OTP_LENGTH, digitsOnlyOtp, isValidOtp, DEV_OTP } from '@/constants/otp'
 import { getApiErrorMessage } from '@/utils/apiError'
+import LocationInput from '@/components/LocationInput'
+import { emptyLocation, type LocationValue } from '@/utils/location'
 import './OtpForm.css'
 
 interface OtpFormProps {
@@ -23,8 +25,8 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
 
   const [name, setName] = useState('')
   const [company, setCompany] = useState('')
-  const [city, setCity] = useState('Bengaluru')
-  const [industry, setIndustry] = useState('garments')
+  const [location, setLocation] = useState<LocationValue>(emptyLocation())
+  const [industry, setIndustry] = useState('')
   const [industries, setIndustries] = useState<{ key: string; label: string }[]>([])
 
   const [loading, setLoading] = useState(false)
@@ -79,6 +81,7 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
       const res = await api.verifyOtp(phone, otp, role)
       if (res.needs_profile) {
         setPendingUser(res.user)
+        setLocation(emptyLocation())
         setStep('profile')
         return
       }
@@ -96,7 +99,7 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
     if (!pendingUser) return
 
     const trimmedName = name.trim()
-    const trimmedCity = city.trim()
+    const trimmedCity = location.city.trim()
     if (trimmedName.length < 2 || trimmedCity.length < 2) {
       setError('Name and city are required')
       return
@@ -120,6 +123,10 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
           company: company.trim(),
           city: trimmedCity,
           industry,
+          locality: location.locality.trim() || undefined,
+          location_label: location.location_label.trim() || undefined,
+          location_lat: location.location_lat,
+          location_lng: location.location_lng,
         })
       } else {
         user = await api.updatePartner(pendingUser.id, {
@@ -164,7 +171,6 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
             id="phone"
             type="tel"
             inputMode="numeric"
-            placeholder="Enter 10-digit mobile number"
             value={phone}
             onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
             autoComplete="off"
@@ -185,7 +191,6 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
             type="text"
             inputMode="numeric"
             maxLength={OTP_LENGTH}
-            placeholder="Enter 4-digit OTP"
             value={otp}
             onChange={(e) => setOtp(digitsOnlyOtp(e.target.value))}
             autoComplete="one-time-code"
@@ -220,7 +225,6 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
           <input
             id="profile-name"
             type="text"
-            placeholder="Full name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
@@ -232,7 +236,6 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
               <input
                 id="profile-company"
                 type="text"
-                placeholder="Business / company name"
                 value={company}
                 onChange={(e) => setCompany(e.target.value)}
               />
@@ -253,14 +256,7 @@ export default function OtpForm({ role, title, subtitle, onSuccess }: OtpFormPro
             </>
           )}
 
-          <label htmlFor="profile-city">City</label>
-          <input
-            id="profile-city"
-            type="text"
-            placeholder="Bengaluru"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-          />
+          <LocationInput value={location} onChange={setLocation} autoDetect />
 
           <button type="submit" disabled={loading}>
             {loading ? 'Saving…' : 'Continue to dashboard'}

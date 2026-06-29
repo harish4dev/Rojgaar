@@ -14,12 +14,14 @@ import { COLORS, RADIUS } from "@/src/constants/theme";
 import { t } from "@/src/i18n/translations";
 import { getJobField } from "@/src/utils/jobTranslation";
 import { callAfterApply } from "@/src/utils/jobActions";
+import { formatJobLocation, formatJobSalary } from "@/src/utils/jobDisplay";
 
 interface Job {
   id: string;
   title: string;
   company: string;
   city: string;
+  location_label?: string | null;
   distance_km?: number;
   salary_min: number;
   salary_max: number;
@@ -99,11 +101,10 @@ export default function JobCard({
             {job.company}
           </Text>
           <Text style={styles.salary} numberOfLines={1}>
-            ₹{job.salary_min.toLocaleString("en-IN")} – ₹{job.salary_max.toLocaleString("en-IN")}
-            <Text style={styles.salaryMonth}> /mo</Text>
+            {formatJobSalary(job)}
           </Text>
           <Text style={styles.location} numberOfLines={1}>
-            {job.city}
+            {formatJobLocation(job.city, job.distance_km, job.location_label)}
           </Text>
           <View style={styles.tagRow}>
             <View style={styles.tag}>
@@ -198,6 +199,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 16,
     paddingVertical: 12,
+    minHeight: 48,
     borderRadius: RADIUS.lg,
     flexDirection: "row",
     alignItems: "center",

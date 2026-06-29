@@ -8,6 +8,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import OnboardingFooter from "@/src/components/OnboardingFooter";
+import OnboardingProgress from "@/src/components/OnboardingProgress";
+import { COLORS } from "@/src/constants/theme";
 
 interface Props {
   children: React.ReactNode;
@@ -15,6 +17,7 @@ interface Props {
   skipLabel?: string;
   onSkip?: () => void;
   header?: React.ReactNode;
+  step?: number;
   scroll?: boolean;
   contentStyle?: ViewStyle;
   testID?: string;
@@ -26,6 +29,7 @@ export default function OnboardingScreen({
   skipLabel,
   onSkip,
   header,
+  step,
   scroll = true,
   contentStyle,
   testID,
@@ -45,6 +49,7 @@ export default function OnboardingScreen({
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]} testID={testID}>
+      {step ? <OnboardingProgress step={step} /> : null}
       {header}
       <KeyboardAvoidingView
         style={styles.flex}
@@ -63,7 +68,7 @@ export default function OnboardingScreen({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFF" },
+  container: { flex: 1, backgroundColor: COLORS.bgCard },
   flex: { flex: 1 },
   scroll: { padding: 24, paddingBottom: 16 },
 });

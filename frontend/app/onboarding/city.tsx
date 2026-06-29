@@ -17,6 +17,7 @@ import { COLORS, RADIUS } from "@/src/constants/theme";
 import PrimaryButton from "@/src/components/PrimaryButton";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import OnboardingFooter from "@/src/components/OnboardingFooter";
+import OnboardingProgress from "@/src/components/OnboardingProgress";
 import { api } from "@/src/api/client";
 import { session } from "@/src/store/session";
 import { t } from "@/src/i18n/translations";  
@@ -30,6 +31,8 @@ export default function CityScreen() {
   } | null>(null);
 
   const [city, setCity] = useState<string | null>(null);
+  const [locality, setLocality] = useState<string | null>(null);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [search, setSearch] = useState("");
   const [detecting, setDetecting] = useState(true);
   const [showManualSelection, setShowManualSelection] = useState(false);
@@ -41,33 +44,45 @@ export default function CityScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const { status } =
-          await Location.requestForegroundPermissionsAsync();
+        const { status } = await Location.requestForegroundPermissionsAsync();
 
         if (status !== "granted") {
           setShowManualSelection(true);
           return;
         }
 
-        const location =
-          await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
+        let position = await Location.getLastKnownPositionAsync({
+          maxAge: 60 * 60 * 1000,
+          requiredAccuracy: 5000,
+        });
+        if (!position) {
+          position = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Low,
           });
+        }
 
-        const [place] =
-          await Location.reverseGeocodeAsync({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-          });
+        const { latitude, longitude } = position.coords;
+        setCoords({ lat: latitude, lng: longitude });
 
-        const detectedCity =
-          place?.city ||
-          place?.subregion ||
-          place?.district ||
-          null;
+        try {
+          const geo = await api.reverseGeocode(latitude, longitude);
+          if (geo?.city || geo?.locality) {
+            setCity(geo.city || null);
+            setLocality(geo.locality || null);
+            return;
+          }
+        } catch {
+          // fall through to device geocoder
+        }
+
+        const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
+        const detectedCity = place?.city || place?.subregion || place?.district || null;
+        const detectedLocality =
+          place?.street || place?.name || place?.district || place?.subregion || null;
 
         if (detectedCity) {
           setCity(detectedCity);
+          setLocality(detectedLocality);
         } else {
           setShowManualSelection(true);
         }
@@ -106,6 +121,10 @@ export default function CityScreen() {
       if (wid) {
         await api.updateWorker(wid, {
           city,
+          locality: locality || undefined,
+          location_lat: coords?.lat,
+          location_lng: coords?.lng,
+          location_consent: Boolean(coords),
         });
       }
 
@@ -121,6 +140,7 @@ export default function CityScreen() {
 
   return (
     <SafeAreaView style={styles.container} testID="city-screen" edges={["top"]}>
+      <OnboardingProgress step={5} />
       <ScreenHeader title={t("select_city")} />
 
       {detecting ? (
@@ -135,8 +155,12 @@ export default function CityScreen() {
             <View style={styles.locationIcon}>
               <Ionicons name="location" size={40} color={COLORS.primary} />
             </View>
-            <Text style={styles.cityName}>{city}</Text>
-            <Text style={styles.cityDescription}>We detected your current city</Text>
+            <Text style={styles.cityName}>{locality || city}</Text>
+            {locality && city ? (
+              <Text style={styles.cityDescription}>{city}</Text>
+            ) : (
+              <Text style={styles.cityDescription}>We detected your current city</Text>
+            )}
             <TouchableOpacity onPress={() => setShowManualSelection(true)}>
               <Text style={styles.changeText}>Select Different City</Text>
             </TouchableOpacity>

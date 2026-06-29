@@ -22,8 +22,15 @@ import { viewedJobs, type ViewedJobRecord } from "@/src/store/viewedJobs";
 import { getApiErrorMessage, isAccountNotFoundError, isUnauthorizedError } from "@/src/utils/apiError";
 import { useResponsive } from "@/src/hooks/useResponsive";
 import { useTabBarInsets } from "@/src/hooks/useTabBarInsets";
+import { formatRelativeTime } from "@/src/utils/relativeTime";
 
 type Tab = "applied" | "viewed" | "saved";
+
+const TAB_LABELS: Record<Tab, () => string> = {
+  applied: () => t("called"),
+  viewed: () => t("seen_recently"),
+  saved: () => t("saved_jobs"),
+};
 
 const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
   Contacted: { bg: COLORS.successBg, fg: COLORS.success },
@@ -54,21 +61,30 @@ export default function ActivityScreen() {
     setLoading(true);
     try {
       setError(null);
-      const [apps, sv, recent] = await Promise.all([
+      const [appsResult, savedResult, viewedResult] = await Promise.allSettled([
         api.listApplications(wid),
         api.listSavedJobs(wid),
         viewedJobs.list(),
       ]);
-      setApplied(apps);
-      setSaved(sv);
-      setViewed(recent);
+      if (appsResult.status === "fulfilled") setApplied(appsResult.value);
+      if (savedResult.status === "fulfilled") setSaved(savedResult.value);
+      if (viewedResult.status === "fulfilled") setViewed(viewedResult.value);
+
+      const allFailed =
+        appsResult.status === "rejected" &&
+        savedResult.status === "rejected" &&
+        viewedResult.status === "rejected";
+      if (allFailed) {
+        const err = appsResult.reason;
+        throw err;
+      }
     } catch (e) {
       if (isUnauthorizedError(e) || isAccountNotFoundError(e)) {
         await session.clear();
         router.replace("/onboarding/phone");
         return;
       }
-      setError(getApiErrorMessage(e, "Could not load activity."));
+      setError(getApiErrorMessage(e, t("could_not_load_activity")));
     } finally {
       setLoading(false);
     }
@@ -87,7 +103,7 @@ export default function ActivityScreen() {
       <ScreenContainer>
         <View style={[styles.header, { paddingHorizontal: horizontalPadding }]}>
           <Text style={styles.title}>{t("activity")}</Text>
-          <Text style={styles.subtitle}>Track applications and saved jobs</Text>
+          <Text style={styles.subtitle}>{t("activity_subtitle")}</Text>
         </View>
 
         <View style={[styles.tabsRow, { paddingHorizontal: horizontalPadding }]}>
@@ -99,7 +115,7 @@ export default function ActivityScreen() {
               style={[styles.tab, tab === tk && styles.tabActive]}
             >
               <Text style={[styles.tabText, tab === tk && styles.tabTextActive]} numberOfLines={1}>
-                {t(tk)}
+                {TAB_LABELS[tk]()}
               </Text>
               {counts[tk] > 0 ? (
                 <View style={[styles.countBadge, tab === tk && styles.countBadgeActive]}>
@@ -122,16 +138,18 @@ export default function ActivityScreen() {
           {loading ? (
             <View style={styles.loaderWrap}>
               <ActivityIndicator color={COLORS.primary} />
-              <Text style={styles.loaderText}>Loading activity...</Text>
+              <Text style={styles.loaderText}>{t("loading_activity")}</Text>
             </View>
           ) : null}
 
           {!loading && tab === "applied" && (
             applied.length === 0 ? (
               <EmptyState
-                icon="document-text-outline"
-                title="No applications yet"
-                subtitle="Jobs you apply to will show up here with their status."
+                icon="call-outline"
+                title={t("empty_called_title")}
+                subtitle={t("empty_called_sub")}
+                actionLabel={t("browse_jobs")}
+                onAction={() => router.push("/(tabs)/home" as any)}
               />
             ) : (
               applied.map((a) => (
@@ -149,8 +167,10 @@ export default function ActivityScreen() {
             viewed.length === 0 ? (
               <EmptyState
                 icon="eye-outline"
-                title="No recently viewed jobs"
-                subtitle="Jobs you open will appear here for quick access."
+                title={t("empty_viewed_title")}
+                subtitle={t("empty_viewed_sub")}
+                actionLabel={t("browse_jobs")}
+                onAction={() => router.push("/(tabs)/home" as any)}
               />
             ) : (
               viewed.map((j) => (
@@ -175,7 +195,7 @@ export default function ActivityScreen() {
                       {j.company}
                     </Text>
                     <Text style={styles.rowMeta} numberOfLines={1}>
-                      Viewed {new Date(j.viewed_at).toLocaleDateString()}
+                      {formatRelativeTime(j.viewed_at)}
                     </Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
@@ -188,8 +208,10 @@ export default function ActivityScreen() {
             saved.length === 0 ? (
               <EmptyState
                 icon="bookmark-outline"
-                title="No saved jobs"
-                subtitle="Tap the bookmark icon on a job to save it for later."
+                title={t("empty_saved_title")}
+                subtitle={t("empty_saved_sub")}
+                actionLabel={t("browse_jobs")}
+                onAction={() => router.push("/(tabs)/home" as any)}
               />
             ) : (
               saved.map((j) => (

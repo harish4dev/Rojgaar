@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 
 from database import db
 from services.db_helpers import get_doc_or_404
+from services.distance import attach_job_distances
 from services.jobs import attach_contact_phones, build_jobs_query
 from services.matching import (
     is_browse_recommendation,
@@ -88,6 +89,7 @@ async def recommend_jobs_for_worker(
         ]
         result = (strong + browse)[:cap]
 
+    result = attach_job_distances(worker, result)
     return await attach_contact_phones(result)
 
 

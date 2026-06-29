@@ -51,7 +51,13 @@ export default function SavedScreen() {
         {loading ? (
           <ActivityIndicator color={COLORS.primary} style={{ marginTop: 32 }} />
         ) : jobs.length === 0 ? (
-          <EmptyState icon="bookmark-outline" title="No saved jobs yet" subtitle="Save jobs to review them later." />
+          <EmptyState
+            icon="bookmark-outline"
+            title={t("empty_saved_title")}
+            subtitle={t("empty_saved_sub")}
+            actionLabel={t("browse_jobs")}
+            onAction={() => router.replace("/(tabs)/home" as any)}
+          />
         ) : (
           jobs.map((j) => <JobCard key={j.id} job={j} callToApply />)
         )}

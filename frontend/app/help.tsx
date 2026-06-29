@@ -1,29 +1,20 @@
-import { ScrollView, Text, StyleSheet, Linking, View } from "react-native";
+import { ScrollView, Text, StyleSheet, Linking, View, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { COLORS, RADIUS } from "@/src/constants/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import ScreenContainer from "@/src/components/ScreenContainer";
 import { t } from "@/src/i18n/translations";
 import { useResponsive } from "@/src/hooks/useResponsive";
 
+const WHATSAPP_URL = "https://wa.me/919876543210?text=Hi%20Rojgaar%20support";
+
 const FAQ = [
-  {
-    q: "How do I apply for a job?",
-    a: "Open a job and tap Call to Apply. Your application is recorded and you can call the employer.",
-  },
-  {
-    q: "How do filters work?",
-    a: "Use Filter jobs from Home, choose options, then tap Show jobs. Filters apply to the All jobs list on Home.",
-  },
-  {
-    q: "How do I save a job?",
-    a: "Tap the bookmark icon on a job card or job details page. Saved jobs appear under Activity → Saved.",
-  },
-  {
-    q: "Who can I contact for support?",
-    a: "Email support@rojgaar.in during business hours.",
-  },
-];
+  { qKey: "help_q_apply", aKey: "help_a_apply" },
+  { qKey: "help_q_filters", aKey: "help_a_filters" },
+  { qKey: "help_q_save", aKey: "help_a_save" },
+  { qKey: "help_q_support", aKey: "help_a_support" },
+] as const;
 
 export default function HelpScreen() {
   const { horizontalPadding } = useResponsive();
@@ -34,11 +25,22 @@ export default function HelpScreen() {
         <ScreenHeader title={t("help_center")} />
         <ScrollView contentContainerStyle={[styles.scroll, { paddingHorizontal: horizontalPadding }]}>
           {FAQ.map((item) => (
-            <View key={item.q} style={styles.card}>
-              <Text style={styles.question}>{item.q}</Text>
-              <Text style={styles.answer}>{item.a}</Text>
+            <View key={item.qKey} style={styles.card}>
+              <Text style={styles.question}>{t(item.qKey)}</Text>
+              <Text style={styles.answer}>{t(item.aKey)}</Text>
             </View>
           ))}
+
+          <TouchableOpacity
+            style={styles.whatsappBtn}
+            onPress={() => Linking.openURL(WHATSAPP_URL)}
+            accessibilityRole="button"
+            accessibilityLabel={t("whatsapp_support")}
+          >
+            <Ionicons name="logo-whatsapp" size={22} color="#FFF" />
+            <Text style={styles.whatsappText}>{t("whatsapp_support")}</Text>
+          </TouchableOpacity>
+
           <Text
             style={styles.link}
             onPress={() => Linking.openURL("mailto:support@rojgaar.in")}
@@ -62,7 +64,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.borderLight,
   },
-  question: { fontSize: 15, fontWeight: "700", color: COLORS.textPrimary },
+  question: { fontSize: 15, fontWeight: "700", color: COLORS.textPrimary, lineHeight: 22 },
   answer: { fontSize: 13, color: COLORS.textSecondary, marginTop: 6, lineHeight: 20 },
-  link: { fontSize: 14, color: COLORS.primary, fontWeight: "700", textAlign: "center", marginTop: 8 },
+  whatsappBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: "#25D366",
+    borderRadius: RADIUS.lg,
+    paddingVertical: 14,
+    marginTop: 8,
+    minHeight: 48,
+  },
+  whatsappText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
+  link: { fontSize: 14, color: COLORS.primary, fontWeight: "700", textAlign: "center", marginTop: 16 },
 });

@@ -109,6 +109,7 @@ export default function OtpScreen() {
   return (
     <OnboardingScreen
       testID="otp-screen"
+      step={3}
       header={<ScreenHeader />}
       footer={
         loading ? (

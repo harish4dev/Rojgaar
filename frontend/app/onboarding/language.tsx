@@ -26,6 +26,7 @@ export default function LanguageScreen() {
   return (
     <OnboardingScreen
       testID="language-screen"
+      step={1}
       footer={<PrimaryButton testID="lang-continue" title={t("continue")} onPress={handleContinue} />}
     >
       <View style={styles.hero}>

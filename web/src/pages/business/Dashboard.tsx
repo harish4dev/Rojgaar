@@ -9,6 +9,8 @@ import {
   Users,
 } from 'lucide-react'
 import PortalLayout, { StatCard } from '@/components/PortalLayout'
+import LocationInput from '@/components/LocationInput'
+import { emptyLocation, type LocationValue } from '@/utils/location'
 import { api, type Business, type Job, type JobApplication } from '@/api/client'
 import { clearSession, getSession, isBusiness, isProfileComplete } from '@/store/auth'
 import { getApiErrorMessage } from '@/utils/apiError'
@@ -66,7 +68,7 @@ export default function BusinessDashboard() {
   const [industry, setIndustry] = useState('garments')
   const [metaIndustries, setMetaIndustries] = useState<{ key: string; label: string }[]>([])
   const [jobTitlesByIndustry, setJobTitlesByIndustry] = useState<Record<string, string[]>>({})
-  const [city, setCity] = useState('Bengaluru')
+  const [jobLocation, setJobLocation] = useState<LocationValue>(emptyLocation())
   const [salaryMin, setSalaryMin] = useState('10000')
   const [salaryMax, setSalaryMax] = useState('30000')
   const [description, setDescription] = useState('')
@@ -145,7 +147,15 @@ export default function BusinessDashboard() {
 
   useEffect(() => {
     if (businessUser?.industry) setIndustry(businessUser.industry)
-    if (businessUser?.city) setCity(businessUser.city)
+    if (businessUser) {
+      setJobLocation({
+        locality: businessUser.locality ?? '',
+        city: businessUser.city ?? '',
+        location_label: businessUser.location_label ?? businessUser.city ?? '',
+        location_lat: businessUser.location_lat,
+        location_lng: businessUser.location_lng,
+      })
+    }
   }, [businessUser])
 
   const jobRoles = jobTitlesByIndustry[industry] ?? []
@@ -184,7 +194,10 @@ export default function BusinessDashboard() {
         title: title.trim(),
         company: businessUser.company,
         industry,
-        city,
+        city: jobLocation.city.trim() || businessUser.city,
+        location_label: jobLocation.location_label.trim() || undefined,
+        location_lat: jobLocation.location_lat,
+        location_lng: jobLocation.location_lng,
         salary_min: parseInt(salaryMin, 10) || 0,
         salary_max: parseInt(salaryMax, 10) || 0,
         salary_negotiable: salaryNegotiable,
@@ -226,17 +239,6 @@ export default function BusinessDashboard() {
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Failed to stop hiring')
     }
-  }
-
-  const detectLocation = () => {
-    if (!navigator.geolocation) {
-      setMessage('Geolocation is not supported in this browser.')
-      return
-    }
-    navigator.geolocation.getCurrentPosition(
-      () => setMessage('Location detected. You can still edit location manually.'),
-      () => setMessage('Could not auto-detect location. Please enter manually.'),
-    )
   }
 
   const pageTitle = active === 'applications' ? 'Applications' : 'Dashboard'
@@ -330,13 +332,7 @@ export default function BusinessDashboard() {
               ))}
             </div>
 
-            <label className="dash-label">Location</label>
-            <div className="dash-row">
-              <input className="dash-input" value={city} onChange={(e) => setCity(e.target.value)} />
-              <button type="button" className="dash-submit dash-submit--secondary" onClick={detectLocation}>
-                Auto-detect
-              </button>
-            </div>
+            <LocationInput value={jobLocation} onChange={setJobLocation} />
 
             <label className="dash-label">Salary range (min – max)</label>
             <div className="dash-row">
@@ -357,7 +353,6 @@ export default function BusinessDashboard() {
             <label className="dash-label">Description</label>
             <textarea
               className="dash-input dash-textarea"
-              placeholder="Tell workers about this role..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}

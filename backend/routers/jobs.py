@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from database import db
 from schemas import Job, JobCreate, JobHiringStatusUpdate
 from services.db_helpers import get_doc_or_404
+from services.geocoding import search_places
 from services.jobs import build_jobs_query
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -50,6 +51,14 @@ async def create_job(payload: JobCreate):
     data = payload.model_dump()
     if data.get("experience_band"):
         data["experience"] = data["experience_band"]
+    if data.get("location_lat") is None and data.get("location_label"):
+        hits = search_places(data["location_label"])
+        if hits:
+            top = hits[0]
+            data["location_lat"] = top.get("location_lat")
+            data["location_lng"] = top.get("location_lng")
+            if not data.get("city"):
+                data["city"] = top.get("city") or data.get("city")
     job = Job(**data)
     await db.jobs.insert_one(job.model_dump())
     return job.model_dump()

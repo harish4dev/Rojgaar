@@ -36,6 +36,14 @@ async def update_business(business_id: str, payload: BusinessProfileUpdate):
         "industry": industry,
         "profile_complete": True,
     }
+    if payload.locality is not None:
+        updates["locality"] = payload.locality.strip()
+    if payload.location_label is not None:
+        updates["location_label"] = payload.location_label.strip()
+    if payload.location_lat is not None:
+        updates["location_lat"] = payload.location_lat
+    if payload.location_lng is not None:
+        updates["location_lng"] = payload.location_lng
     await db.businesses.update_one({"id": business_id}, {"$set": updates})
     return await get_doc_or_404("businesses", business_id, "Business not found")
 

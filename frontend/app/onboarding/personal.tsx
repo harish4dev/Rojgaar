@@ -45,6 +45,7 @@ export default function PersonalScreen() {
   return (
     <OnboardingScreen
       testID="personal-screen"
+      step={4}
       header={<ScreenHeader title="" />}
       footer={
         <PrimaryButton
@@ -65,8 +66,6 @@ export default function PersonalScreen() {
         style={styles.input}
         value={name}
         onChangeText={setName}
-        placeholder={t("full_name_ph")}
-        placeholderTextColor={COLORS.textSecondary}
         autoCapitalize="words"
         returnKeyType="next"
       />
@@ -98,8 +97,6 @@ export default function PersonalScreen() {
         style={[styles.input, { width: 140 }]}
         value={age}
         onChangeText={(v) => setAge(v.replace(/[^0-9]/g, "").slice(0, 2))}
-        placeholder={t("age_ph")}
-        placeholderTextColor={COLORS.textSecondary}
         keyboardType="number-pad"
         maxLength={2}
       />

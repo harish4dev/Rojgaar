@@ -66,6 +66,8 @@ export const api = {
   listSavedJobs: (worker_id: string) => req(`/saved-jobs?worker_id=${worker_id}`),
 
   getCities: () => req("/meta/cities", {}, false),
+  reverseGeocode: (lat: number, lng: number) =>
+    req("/meta/reverse-geocode", { method: "POST", body: JSON.stringify({ lat, lng }) }, false),
   getIndustries: () => req("/meta/industries", {}, false),
   getSkills: () => req("/meta/skills", {}, false),
   getIndustryJobTitles: () => req("/meta/industry-job-titles", {}, false),

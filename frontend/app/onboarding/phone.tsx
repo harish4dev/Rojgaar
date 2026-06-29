@@ -39,6 +39,7 @@ export default function PhoneScreen() {
   return (
     <OnboardingScreen
       testID="phone-screen"
+      step={2}
       header={<ScreenHeader />}
       footer={
         <PrimaryButton

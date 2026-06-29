@@ -37,6 +37,7 @@ export default function ExperienceScreen() {
   return (
     <OnboardingScreen
       testID="experience-screen"
+      step={7}
       header={<ScreenHeader title="" />}
       skipLabel="Skip for now"
       onSkip={() => handleContinue(true)}

@@ -18,6 +18,7 @@ class Worker(BaseModel):
     language: str = "en"
     languages_known: List[str] = Field(default_factory=list)
     city: Optional[str] = None
+    locality: Optional[str] = None
     industries: List[str] = Field(default_factory=list)
     industry_preference: Optional[str] = None
     preferred_job_title: Optional[str] = None
@@ -45,6 +46,7 @@ class WorkerUpsert(BaseModel):
     language: Optional[str] = None
     languages_known: Optional[List[str]] = None
     city: Optional[str] = None
+    locality: Optional[str] = None
     industries: Optional[List[str]] = None
     industry_preference: Optional[str] = None
     preferred_job_title: Optional[str] = None
@@ -67,6 +69,10 @@ class Business(BaseModel):
     phone: Optional[str] = None
     company: str = ""
     city: str = ""
+    locality: Optional[str] = None
+    location_label: Optional[str] = None
+    location_lat: Optional[float] = None
+    location_lng: Optional[float] = None
     industry: str = ""
     profile_complete: bool = False
     created_at: str = Field(default_factory=now_iso)
@@ -77,6 +83,10 @@ class BusinessProfileUpdate(BaseModel):
     company: str
     city: str
     industry: str
+    locality: Optional[str] = None
+    location_label: Optional[str] = None
+    location_lat: Optional[float] = None
+    location_lng: Optional[float] = None
 
 
 class Partner(BaseModel):
@@ -249,6 +259,11 @@ class CandidateOtpConfirm(BaseModel):
         if len(digits) != 10:
             raise ValueError("employee_number must be a 10-digit phone")
         return digits
+
+
+class ReverseGeocodeRequest(BaseModel):
+    lat: float
+    lng: float
 
 
 class OtpRequest(BaseModel):

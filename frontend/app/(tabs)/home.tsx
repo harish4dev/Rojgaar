@@ -4,10 +4,10 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  FlatList,
   TextInput,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -21,6 +21,7 @@ import { jobFilters, type JobFilterParams } from "@/src/store/jobFilters";
 import JobCard from "@/src/components/JobCard";
 import ScreenContainer from "@/src/components/ScreenContainer";
 import EmptyState from "@/src/components/EmptyState";
+import JobCardSkeleton from "@/src/components/JobCardSkeleton";
 import { t } from "@/src/i18n/translations";
 import ErrorBanner from "@/src/components/ErrorBanner";
 import { getApiErrorMessage, isAccountNotFoundError, isUnauthorizedError } from "@/src/utils/apiError";
@@ -94,8 +95,12 @@ const FILTERS = [
   { key: "nearby", label: () => t("nearby"), icon: "location" as const },
   { key: "daily", label: () => t("daily_wage"), icon: "cash-outline" as const },
   { key: "full", label: () => t("full_time"), icon: "briefcase-outline" as const },
-  { key: "garments", label: () => "Garments", icon: "shirt-outline" as const },
+  { key: "garments", label: () => t("garments"), icon: "shirt-outline" as const },
 ];
+
+type JobListItem =
+  | { type: "section"; id: string; title: string; sub?: string; count?: number }
+  | { type: "job"; id: string; job: Job; recommended?: boolean };
 
 function initials(name?: string) {
   if (!name?.trim()) return "?";
@@ -152,7 +157,7 @@ export default function Home() {
         router.replace("/onboarding/phone");
         return;
       }
-      setError(getApiErrorMessage(e, "Could not load jobs."));
+      setError(getApiErrorMessage(e, t("could_not_load_jobs")));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -188,202 +193,267 @@ export default function Home() {
   const filtersActive = Boolean(appliedFilters && Object.keys(appliedFilters).length > 0);
 
   const showProfileNudge = (worker?.profile_strength ?? 100) < 80;
+  const hasActiveSearch = search.trim().length > 0;
+  const hasChipFilter = activeChip !== "all";
+  const isEmpty = !loading && topRecommendations.length === 0 && allJobsList.length === 0;
+
+  const listItems = useMemo((): JobListItem[] => {
+    const items: JobListItem[] = [];
+    if (topRecommendations.length > 0) {
+      items.push({
+        type: "section",
+        id: "rec-head",
+        title: t("matched_for_you"),
+        sub: t("matched_to_profile"),
+        count: topRecommendations.length,
+      });
+      topRecommendations.forEach((j) =>
+        items.push({ type: "job", id: `rec-${j.id}`, job: j, recommended: true })
+      );
+    }
+    if (allJobsList.length > 0) {
+      items.push({
+        type: "section",
+        id: "all-head",
+        title: t("all_jobs"),
+        count: allJobsList.length,
+        sub: filtersActive ? t("filters_applied") : t("more_openings"),
+      });
+      allJobsList.forEach((j) => items.push({ type: "job", id: j.id, job: j }));
+    }
+    return items;
+  }, [topRecommendations, allJobsList, filtersActive]);
+
+  const clearFilters = async () => {
+    await jobFilters.clear();
+    setAppliedFilters(null);
+    loadAll();
+  };
+
+  const renderHero = () => (
+    <LinearGradient
+      colors={["#1565C0", "#1A5FCC", "#0D3D8A"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[styles.hero, { paddingHorizontal: horizontalPadding }]}
+    >
+      <View style={styles.heroTop}>
+        <View style={styles.heroLeft}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initials(worker?.name)}</Text>
+          </View>
+          <View style={styles.heroText}>
+            <Text style={styles.greeting} numberOfLines={1}>
+              {t("hi_user")}, {worker?.name?.split(" ")[0] || "there"} 👋
+            </Text>
+            <View style={styles.locationPill}>
+              <Ionicons name="location" size={13} color="#FFF" />
+              <Text style={styles.locationText} numberOfLines={1}>
+                {worker?.city || "Bengaluru"}
+              </Text>
+            </View>
+          </View>
+        </View>
+        <TouchableOpacity
+          testID="header-saved"
+          onPress={() => router.push("/saved")}
+          style={styles.iconBtn}
+        >
+          <Ionicons name="bookmark" size={20} color="#FFF" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.searchBox}>
+        <Ionicons name="search" size={20} color={COLORS.textSecondary} />
+        <TextInput
+          testID="home-search"
+          style={styles.searchInput}
+          placeholder={t("search_jobs")}
+          value={search}
+          onChangeText={setSearch}
+          placeholderTextColor={COLORS.textSecondary}
+        />
+        {search.length > 0 ? (
+          <TouchableOpacity onPress={() => setSearch("")} hitSlop={8}>
+            <Ionicons name="close-circle" size={20} color={COLORS.textSecondary} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            testID="open-filter-from-home"
+            onPress={() => router.push("/filter")}
+            hitSlop={8}
+            accessibilityLabel={t("find_jobs")}
+          >
+            <Ionicons name="options-outline" size={20} color={COLORS.primary} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filtersRow}
+      >
+        {FILTERS.map((f) => {
+          const active = activeChip === f.key;
+          return (
+            <TouchableOpacity
+              key={f.key}
+              testID={`chip-${f.key}`}
+              onPress={() => setActiveChip(f.key)}
+              style={[styles.filterChip, active && styles.filterChipActive]}
+            >
+              <Ionicons
+                name={f.icon}
+                size={14}
+                color={active ? COLORS.primary : "rgba(255,255,255,0.9)"}
+              />
+              <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                {f.label()}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </LinearGradient>
+  );
+
+  const renderListHeader = () => (
+    <View style={[styles.body, { paddingHorizontal: horizontalPadding }]}>
+      {error ? (
+        <ErrorBanner message={error} onRetry={() => loadAll()} onDismiss={() => setError(null)} />
+      ) : null}
+      {showProfileNudge ? (
+        <TouchableOpacity
+          testID="profile-nudge"
+          style={styles.nudgeCard}
+          onPress={() => router.push("/profile/edit" as any)}
+          activeOpacity={0.85}
+        >
+          <View style={styles.nudgeIcon}>
+            <Ionicons name="person-circle-outline" size={22} color={COLORS.primary} />
+          </View>
+          <View style={styles.nudgeBody}>
+            <Text style={styles.nudgeTitle}>{t("profile_nudge_title")}</Text>
+            <Text style={styles.nudgeSub}>
+              {t("profile_nudge_sub").replace("{pct}", String(worker?.profile_strength ?? 0))}
+            </Text>
+            <View style={styles.nudgeBarWrap}>
+              <View
+                style={[styles.nudgeBarFill, { width: `${worker?.profile_strength ?? 0}%` }]}
+              />
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+      ) : null}
+
+      {!loading && topRecommendations.length === 0 && allJobsList.length > 0 ? (
+        <Text style={styles.subsectionSub}>
+          {filtersActive || hasChipFilter || hasActiveSearch
+            ? t("empty_no_matches_sub")
+            : t("more_openings")}
+        </Text>
+      ) : null}
+
+      {loading ? (
+        <View style={styles.loaderWrap}>
+          <JobCardSkeleton />
+          <JobCardSkeleton />
+          <JobCardSkeleton />
+          <Text style={styles.loaderText}>{t("loading_jobs")}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+
+  const renderEmpty = () => {
+    if (loading) return null;
+    const searchOrFilter = hasActiveSearch || filtersActive || hasChipFilter;
+    return (
+      <View style={{ paddingHorizontal: horizontalPadding }}>
+        <EmptyState
+          icon={searchOrFilter ? "search-outline" : "briefcase-outline"}
+          title={
+            searchOrFilter ? t("empty_no_jobs_search_title") : t("empty_no_jobs_area_title")
+          }
+          subtitle={
+            searchOrFilter ? t("empty_no_jobs_search_sub") : t("empty_no_jobs_area_sub")
+          }
+          actionLabel={
+            searchOrFilter ? (hasActiveSearch ? t("clear_search") : t("remove_filters")) : t("change_city")
+          }
+          onAction={
+            hasActiveSearch
+              ? () => setSearch("")
+              : filtersActive || hasChipFilter
+                ? () => {
+                    setActiveChip("all");
+                    if (filtersActive) clearFilters();
+                  }
+                : () => router.push("/profile/edit" as any)
+          }
+          secondaryLabel={searchOrFilter ? t("browse_jobs") : undefined}
+          onSecondary={
+            searchOrFilter
+              ? () => {
+                  setSearch("");
+                  setActiveChip("all");
+                }
+              : undefined
+          }
+        />
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} testID="home-screen" edges={["top"]}>
       <ScreenContainer fill>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFF" />}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollBottomPadding }]}
-        >
-          {/* Hero */}
-          <LinearGradient
-            colors={["#1565C0", "#1A5FCC", "#0D3D8A"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.hero, { paddingHorizontal: horizontalPadding }]}
-          >
-            <View style={styles.heroTop}>
-              <View style={styles.heroLeft}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{initials(worker?.name)}</Text>
-                </View>
-                <View style={styles.heroText}>
-                  <Text style={styles.greeting} numberOfLines={1}>
-                    {t("hi_user")}, {worker?.name?.split(" ")[0] || "there"} 👋
-                  </Text>
-                  <View style={styles.locationPill}>
-                    <Ionicons name="location" size={13} color="#FFF" />
-                    <Text style={styles.locationText} numberOfLines={1}>
-                      {worker?.city || "Bengaluru"}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-              <TouchableOpacity
-                testID="header-saved"
-                onPress={() => router.push("/saved")}
-                style={styles.iconBtn}
-              >
-                <Ionicons name="bookmark" size={20} color="#FFF" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.searchBox}>
-              <Ionicons name="search" size={20} color={COLORS.textSecondary} />
-              <TextInput
-                testID="home-search"
-                style={styles.searchInput}
-                placeholder={t("search_jobs")}
-                value={search}
-                onChangeText={setSearch}
-                placeholderTextColor={COLORS.textSecondary}
-              />
-              {search.length > 0 ? (
-                <TouchableOpacity onPress={() => setSearch("")} hitSlop={8}>
-                  <Ionicons name="close-circle" size={20} color={COLORS.textSecondary} />
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  testID="open-filter-from-home"
-                  onPress={() => router.push("/filter")}
-                  hitSlop={8}
-                >
-                  <Ionicons name="options-outline" size={20} color={COLORS.primary} />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filtersRow}
-            >
-              {FILTERS.map((f) => {
-                const active = activeChip === f.key;
-                return (
-                  <TouchableOpacity
-                    key={f.key}
-                    testID={`chip-${f.key}`}
-                    onPress={() => setActiveChip(f.key)}
-                    style={[styles.filterChip, active && styles.filterChipActive]}
-                  >
-                    <Ionicons
-                      name={f.icon}
-                      size={14}
-                      color={active ? COLORS.primary : "rgba(255,255,255,0.9)"}
-                    />
-                    <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-                      {f.label()}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </LinearGradient>
-
-          <View style={[styles.body, { paddingHorizontal: horizontalPadding }]}>
-            {error ? (
-              <ErrorBanner message={error} onRetry={() => loadAll()} onDismiss={() => setError(null)} />
-            ) : null}
-            {showProfileNudge ? (
-              <TouchableOpacity
-                testID="profile-nudge"
-                style={styles.nudgeCard}
-                onPress={() => router.push("/profile/edit" as any)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.nudgeIcon}>
-                  <Ionicons name="person-circle-outline" size={22} color={COLORS.primary} />
-                </View>
-                <View style={styles.nudgeBody}>
-                  <Text style={styles.nudgeTitle}>Complete your profile</Text>
-                  <Text style={styles.nudgeSub}>
-                    {worker?.profile_strength ?? 0}% done — stronger profiles get more calls
-                  </Text>
-                  <View style={styles.nudgeBarWrap}>
-                    <View
-                      style={[styles.nudgeBarFill, { width: `${worker?.profile_strength ?? 0}%` }]}
-                    />
-                  </View>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            ) : null}
-
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionLeft}>
-                <Text style={styles.sectionTitle}>{t("recommended_for_you")}</Text>
-                {!loading && topRecommendations.length > 0 ? (
-                  <View style={styles.countBadge}>
-                    <Text style={styles.countText}>{topRecommendations.length}</Text>
-                  </View>
-                ) : null}
-              </View>
-            </View>
-
-            {!loading && topRecommendations.length === 0 && allJobsList.length > 0 ? (
-              <Text style={styles.subsectionSub}>
-                {filtersActive || activeChip !== "all" || search.trim()
-                  ? "No recommended matches for your current filters."
-                  : "Browse more jobs below."}
-              </Text>
-            ) : null}
-
-            {loading ? (
-              <View style={styles.loaderWrap}>
-                <ActivityIndicator color={COLORS.primary} size="large" />
-                <Text style={styles.loaderText}>Finding jobs for you...</Text>
-              </View>
-            ) : topRecommendations.length === 0 && allJobsList.length === 0 ? (
-              <EmptyState
-                icon="search-outline"
-                title="No jobs found"
-                subtitle={
-                  filtersActive || search.trim()
-                    ? "Try clearing filters or your search."
-                    : "Check back soon for new openings."
-                }
-              />
-            ) : (
-              <>
-                {topRecommendations.length > 0 ? (
-                  <View style={styles.subsection}>
-                    <Text style={styles.subsectionSub}>Matched to your profile</Text>
-                    {topRecommendations.map((j) => (
-                      <JobCard
-                        key={`rec-${j.id}`}
-                        job={j}
-                        matchScore={j.match_score}
-                        callToApply
-                      />
-                    ))}
-                  </View>
-                ) : null}
-
-                {allJobsList.length > 0 ? (
-                  <View style={styles.subsection}>
-                    <View style={styles.sectionHeader}>
-                      <View style={styles.sectionLeft}>
-                        <Text style={styles.sectionTitle}>{t("all_jobs")}</Text>
+        <FlatList
+          data={loading ? [] : listItems}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={
+            <>
+              {renderHero()}
+              {renderListHeader()}
+            </>
+          }
+          ListEmptyComponent={isEmpty ? renderEmpty : null}
+          renderItem={({ item }) => {
+            if (item.type === "section") {
+              return (
+                <View style={[styles.body, { paddingHorizontal: horizontalPadding }]}>
+                  <View style={styles.sectionHeader}>
+                    <View style={styles.sectionLeft}>
+                      <Text style={styles.sectionTitle}>{item.title}</Text>
+                      {item.count != null ? (
                         <View style={styles.countBadge}>
-                          <Text style={styles.countText}>{allJobsList.length}</Text>
+                          <Text style={styles.countText}>{item.count}</Text>
                         </View>
-                      </View>
+                      ) : null}
                     </View>
-                    <Text style={styles.sectionSub}>
-                      {filtersActive ? `${t("filters_applied")}` : "More openings for you"}
-                    </Text>
-                    {allJobsList.map((j) => (
-                      <JobCard key={j.id} job={j} matchScore={j.match_score} callToApply />
-                    ))}
                   </View>
-                ) : null}
-              </>
-            )}
-          </View>
-        </ScrollView>
+                  {item.sub ? <Text style={styles.sectionSub}>{item.sub}</Text> : null}
+                </View>
+              );
+            }
+            return (
+              <View style={{ paddingHorizontal: horizontalPadding }}>
+                <JobCard job={item.job} matchScore={item.job.match_score} callToApply />
+              </View>
+            );
+          }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFF" />
+          }
+          contentContainerStyle={{ paddingBottom: scrollBottomPadding }}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={5}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          removeClippedSubviews
+        />
       </ScreenContainer>
     </SafeAreaView>
   );

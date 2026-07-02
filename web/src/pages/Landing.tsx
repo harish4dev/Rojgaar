@@ -250,6 +250,7 @@ export default function Landing() {
           <a href="#features">Features</a>
           <Link to="/portal">Portals</Link>
           <Link to="/privacy">Privacy Policy</Link>
+          <Link to="/deleteacc">Delete account</Link>
           <a href="#download">Download</a>
         </nav>
         <p>© {new Date().getFullYear()} Rojgaar. Find jobs near you.</p>

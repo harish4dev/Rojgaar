@@ -44,6 +44,8 @@ export default function PortalGateway() {
         </p>
         <p className="portal-gateway__note">
           <Link to="/privacy">Privacy Policy</Link>
+          {' · '}
+          <Link to="/deleteacc">Delete worker account</Link>
         </p>
       </main>
     </div>

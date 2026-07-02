@@ -6,6 +6,7 @@ import BusinessDashboard from '@/pages/business/Dashboard'
 import PartnerAuth from '@/pages/partner/Auth'
 import PartnerDashboard from '@/pages/partner/Dashboard'
 import PrivacyPolicy from '@/pages/PrivacyPolicy'
+import DeleteAccount from '@/pages/DeleteAccount'
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/deleteacc" element={<DeleteAccount />} />
         <Route path="/portal" element={<PortalGateway />} />
         <Route path="/business/login" element={<BusinessAuth />} />
         <Route path="/business/dashboard" element={<BusinessDashboard />} />
